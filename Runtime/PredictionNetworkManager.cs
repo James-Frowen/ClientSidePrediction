@@ -14,6 +14,8 @@ namespace JamesFrowen.CSP
 
         private void Awake()
         {
+            Physics.autoSimulation = false;
+            Physics.autoSyncTransforms = false;
             if (instance == null)
             {
                 instance = this;
@@ -34,6 +36,8 @@ namespace JamesFrowen.CSP
                 SceneManager.MoveGameObjectToScene(clone, serverScene);
                 ServerObjectManager.AddCharacter(player, clone);
                 clone.GetComponent<Renderer>().material.color = Color.red;
+
+                clone.GetComponent<Renderer>().enabled = true;
             });
 
 
@@ -41,11 +45,28 @@ namespace JamesFrowen.CSP
             yield return clientOp;
             Scene clientScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
 
+            UnityEngine.AsyncOperation clientOp2 = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });
+            yield return clientOp2;
+            Scene clientScene2 = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+
             ClientObjectManager.RegisterSpawnHandler(prefab.GetComponent<NetworkIdentity>().PrefabHash, (msg) =>
             {
                 GameObject clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, clientScene);
                 clone.GetComponent<Renderer>().material.color = Color.green;
+
+                GameObject clone2 = Instantiate(prefab);
+                PredictionBehaviour behaviour2 = clone2.GetComponent<PredictionBehaviour>();
+                clone.GetComponent<PredictionBehaviour>().Copy = behaviour2;
+                behaviour2.physics = clientScene2.GetPhysicsScene();
+                behaviour2.GetComponent<Renderer>().material.color = Color.blue;
+                behaviour2.tickRunner = GetComponent<TickRunner>();
+
+                SceneManager.MoveGameObjectToScene(clone2, clientScene2);
+
+                clone.GetComponent<Renderer>().enabled = true;
+                clone2.GetComponent<Renderer>().enabled = true;
+
                 return clone.GetComponent<NetworkIdentity>();
             }, (spawned) => Destroy(spawned));
 
