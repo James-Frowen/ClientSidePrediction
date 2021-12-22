@@ -8,7 +8,6 @@
  *******************************************************/
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Mirage;
 using Mirage.Logging;
@@ -52,7 +51,6 @@ namespace JamesFrowen.CSP
         {
             ApplyInput(input, noNetworkPrevious);
             Simulate();
-            Physics.SyncTransforms();
             noNetworkPrevious = input;
         }
 
@@ -227,10 +225,6 @@ namespace JamesFrowen.CSP
             InputState GetInput(int tick) => _inputBuffer[TickToBuffer(tick)];
             void SetInput(int tick, InputState state) => _inputBuffer[TickToBuffer(tick)] = state;
 
-            ObjectState[] _objectBuffer;
-            ObjectState GetState(int tick) => _objectBuffer[TickToBuffer(tick)];
-            void SetState(int tick, ObjectState state) => _objectBuffer[TickToBuffer(tick)] = state;
-
             public bool unappliedTick;
             public int lastRecievedTick = NO_VALUE;
             public ObjectState lastRecievedState;
@@ -249,8 +243,6 @@ namespace JamesFrowen.CSP
                 unappliedTick = true;
                 lastRecievedTick = tick;
                 lastRecievedState = state;
-
-                SetState(tick, state);
             }
 
 
@@ -258,80 +250,56 @@ namespace JamesFrowen.CSP
             {
                 this.behaviour = behaviour;
                 _inputBuffer = new InputState[BufferSize];
-                _objectBuffer = new ObjectState[BufferSize];
             }
+
 
             public void Tick(int tick)
             {
-                Tick_v2(tick);
-            }
+                int tickDelay = CalcualteTickDifference();
 
-            private void Tick_v1(int tick)
-            {
-                SetInput(tick, GetUnityInput());
+                // todo add this tick delay stuff to tick runner rather than inside tick
+                throw new System.NotImplementedException();
 
-                // if new data from server
-                if (unappliedTick)
-                {
-                    // set state to server's state
-                    behaviour.ApplyState(lastRecievedState);
-
-                    // set forward appliying inputs
-                    // - exclude current tick, we will run this later
-                    if (tick - lastRecievedTick > BufferSize)
-                        throw new OverflowException("Inputs overflowed buffer");
-
-                    for (int t = lastRecievedTick; t < tick; t++)
-                    {
-                        Step(t);
-                    }
-
-                    unappliedTick = false;
-                }
-
-                // run current tick+inputs
-                Step(tick);
-
-                behaviour.SendInput(tick, GetInput(tick));
-            }
-            private void Tick_v2(int tick)
-            {
                 InputState thisTickInput = GetUnityInput();
                 SetInput(tick, thisTickInput);
                 behaviour.Copy.NoNetworkApply(thisTickInput);
-                behaviour.SendInput(tick, GetInput(tick));
+                behaviour.SendInput(tick, thisTickInput);
 
-                int firstTick = lastRecievedTick == NO_VALUE
-                    ? tick
-                    : lastRecievedTick;
-                for (int t = firstTick; t <= tick; t++)
-                {
-                    InputState input = GetInput(t);
-                    InputState previous = GetInput(t - 1);
-                    behaviour.ApplyState(GetState(t - 1));
-                    behaviour.ApplyInput(input, previous);
+                if (unappliedTick)
+                    Resim(tick - 1);
 
-                    //Debug.Log($"Simulating Tick:{t}");
-                    behaviour.Simulate();
-                    Physics.SyncTransforms();
-                    SetState(t, behaviour.GatherState());
-                    //CompareStatesToTick(t);
-                }
+                // step this tick
+                Step(tick);
             }
 
-            void CompareStatesToTick(int t)
-            {
-                CompareStates(GetState(t), behaviour.GatherState(), $"tick:{t}");
-            }
-            void CompareStates(ObjectState previous, ObjectState next, string note = "")
-            {
-                Vector3 deltaPos = next.position - previous.position;
-                Vector3 deltaVel = next.velocity - previous.velocity;
 
-                if (deltaPos.magnitude > 0.1 || deltaVel.magnitude > 0.1)
+            private int CalcualteTickDifference()
+            {
+                double oneWayTrip = behaviour.NetworkTime.Rtt / 2;
+                float tickTime = behaviour.tickRunner.TickInterval;
+
+                double tickDifference = oneWayTrip * tickTime;
+                // +2 to make sure inputs always get to server before simulation
+                return 2 + (int)Math.Floor(tickDifference);
+            }
+
+            private void Resim(int tick)
+            {
+                // set state to server's state
+                behaviour.ApplyState(lastRecievedState);
+
+                // set forward appliying inputs
+                // - exclude current tick, we will run this later
+                if (tick - lastRecievedTick > BufferSize)
+                    throw new OverflowException("Inputs overflowed buffer");
+
+                // todo is this number right
+                for (int t = lastRecievedTick; t < tick; t++)
                 {
-                    logger.LogWarning($"Pos{deltaPos}, Vel{deltaVel}, {note}");
+                    Step(t);
                 }
+
+                unappliedTick = false;
             }
 
             private void Step(int t)
@@ -340,10 +308,6 @@ namespace JamesFrowen.CSP
                 InputState previous = GetInput(t - 1);
                 behaviour.ApplyInput(input, previous);
                 behaviour.Simulate();
-
-                //CompareStatesToTick(t);
-
-                SetState(t, behaviour.GatherState());
             }
 
             InputState GetUnityInput()
@@ -362,32 +326,17 @@ namespace JamesFrowen.CSP
 
             InputState[] _inputBuffer;
             InputState GetInput(int tick) => _inputBuffer[TickToBuffer(tick)];
-            void SetInput(int tick, InputState state)
-            {
-                _inputBuffer[TickToBuffer(tick)] = state;
-                _inputBufferPrevious[TickToBuffer(tick)] = state;
-            }
-            void ClearInput(int tick) => _inputBuffer[TickToBuffer(tick)] = default;
+            void SetInput(int tick, InputState state) => _inputBuffer[TickToBuffer(tick)] = state;
+            /// <summary>Clears Previous inputs for tick (eg tick =100 clears tick 99's inputs</summary>
+            void ClearPreviousInput(int tick) => SetInput(tick - 1, default);
 
-            InputState[] _inputBufferPrevious;
-            InputState GetInputPrevious(int tick) => _inputBufferPrevious[TickToBuffer(tick)];
-
-            ObjectState[] _objectBuffer;
-            ObjectState GetState(int tick) => _objectBuffer[TickToBuffer(tick)];
-            void SetState(int tick, ObjectState state) => _objectBuffer[TickToBuffer(tick)] = state;
-
-            int lastRecievedInput = -1;
-            int lastAppliedInput = -1;
+            int lastRecieved = -1;
 
             public ServerController(PredictionBehaviour behaviour)
             {
                 this.behaviour = behaviour;
                 _inputBuffer = new InputState[BufferSize];
-                _inputBufferPrevious = new InputState[BufferSize];
-                _objectBuffer = new ObjectState[BufferSize];
             }
-
-
 
             internal void OnReceiveInput(InputMessage msg)
             {
@@ -398,205 +347,77 @@ namespace JamesFrowen.CSP
                     int t = lastTick - i;
                     InputState input = msg.inputs[i];
                     // if new
-                    if (t > lastRecievedInput)
+                    if (t > lastRecieved)
                     {
                         SetInput(t, input);
                     }
                 }
 
-                lastRecievedInput = Mathf.Max(lastRecievedInput, lastTick);
+                lastRecieved = Mathf.Max(lastRecieved, lastTick);
             }
 
 
             public void Tick(int tick)
             {
-                Tick_v2(tick);
-            }
-            public void Tick_v1(int tick)
-            {
-                ApplyInputs(tick);
-
-                // simulate up to current tick
-                for (int t = lastRecievedInput + 1; t <= tick; t++)
+                InputState input = GetInput(tick);
+                if (input.Valid)
                 {
-                    SetupNoInput(t);
+                    InputState previous = GetInput(tick - 1);
+
+                    behaviour.ApplyInput(input, previous);
                 }
 
-                behaviour.SendState(tick, GetState(tick));
-            }
-            private void ApplyInputs(int tick)
-            {
-                // no inputs received yet
-                if (lastRecievedInput == NO_VALUE) return;
-                // if no last applied 
-                if (lastAppliedInput == NO_VALUE)
-                {
-                    lastAppliedInput = lastRecievedInput - 1;
-                }
-                if (tick - lastRecievedInput > 60)
-                {
-                    throw new System.Exception("Client too far behind");
-                }
-
-                if (lastAppliedInput != lastRecievedInput)
-                {
-                    // apply last state with inputs
-                    behaviour.ApplyState(GetState(lastAppliedInput));
-
-                    // apply all missing inputs
-                    for (int t = lastAppliedInput + 1; t <= lastRecievedInput; t++)
-                    {
-                        if (t > tick)
-                            throw new Exception("Applying imput ahead of tick");
-
-
-                        InputState input = GetInput(t);
-                        InputState previous = GetInput(t - 1);
-                        Debug.Assert(input.Valid, $"Invalid Input {t}");
-                        Debug.Assert(previous.Valid, $"Invalid Input {t - 1}");
-
-                        StepWithInputs(t);
-                    }
-                    lastAppliedInput = lastRecievedInput;
-                }
-            }
-
-            private void SetupNoInput(int t)
-            {
                 behaviour.Simulate();
+                behaviour.SendState(tick, behaviour.GatherState());
 
-                SetState(t, behaviour.GatherState());
-            }
-
-            private void StepWithInputs(int t)
-            {
-                // apply inputs up to received
-                InputState input = GetInput(t);
-                InputState previous = GetInput(t - 1);
-                behaviour.ApplyInput(input, previous);
-                behaviour.Simulate();
-
-                SetState(t, behaviour.GatherState());
-            }
-
-
-
-            public void Tick_v2(int tick)
-            {
-                tick -= 3;
-                for (int t = lastAppliedInput + 1; t <= tick; t++)
-                {
-                    InputState input = GetInput(t);
-                    if (input.Valid)
-                    {
-                        InputState previous = GetInputPrevious(t - 1);
-                        Debug.Assert(previous.Valid || lastAppliedInput == NO_VALUE);
-
-                        behaviour.ApplyState(GetState(t - 1));
-                        behaviour.ApplyInput(input, previous);
-                        lastAppliedInput = t;
-                        // consume previous input so it cant be used again
-                        ClearInput(t);
-                    }
-
-                    Debug.Log($"Simulating Tick:{t}");
-                    behaviour.Simulate();
-                    CompareStatesToTick(t);
-                    SetState(t, behaviour.GatherState());
-                }
-
-                behaviour.SendState(tick, GetState(tick));
-                Physics.SyncTransforms();
-            }
-            public IEnumerator Tick_v3(int tick)
-            {
-                for (int t = lastAppliedInput + 1; t <= tick; t++)
-                {
-                    InputState input = GetInput(t);
-                    if (input.Valid)
-                    {
-                        InputState previous = GetInputPrevious(t - 1);
-                        Debug.Assert(previous.Valid || lastAppliedInput == NO_VALUE);
-
-                        behaviour.ApplyState(GetState(t - 1));
-                        behaviour.ApplyInput(input, previous);
-                        lastAppliedInput = t;
-                        // consume previous input so it cant be used again
-                        ClearInput(t);
-                    }
-
-                    Debug.Log($"Simulating Tick:{t}");
-                    behaviour.Simulate();
-                    Physics.SyncTransforms();
-                    SetState(t, behaviour.GatherState());
-                    CompareStatesToTick(t);
-
-                    yield return null;
-                }
-
-                behaviour.SendState(tick, GetState(tick));
-            }
-
-            void CompareStatesToTick(int t)
-            {
-                CompareStates(GetState(t), behaviour.GatherState(), $"tick:{t}");
-            }
-            void CompareStates(ObjectState previous, ObjectState next, string note = "")
-            {
-                Vector3 deltaPos = next.position - previous.position;
-                Vector3 deltaVel = next.velocity - previous.velocity;
-
-                if (deltaPos.magnitude > 0.1 || deltaVel.magnitude > 0.1)
-                {
-                    logger.LogWarning($"Pos{deltaPos}, Vel{deltaVel}, {note}");
-                }
+                ClearPreviousInput(tick);
             }
         }
-    }
 
-    public struct InputState
-    {
-        public readonly bool Valid;
-        public readonly bool jump;
-        public readonly bool left;
-        public readonly bool right;
-
-        public InputState(bool right, bool left, bool jump)
+        public struct InputState
         {
-            this.jump = jump;
-            this.left = left;
-            this.right = right;
-            Valid = true;
+            public readonly bool Valid;
+            public readonly bool jump;
+            public readonly bool left;
+            public readonly bool right;
+
+            public InputState(bool right, bool left, bool jump)
+            {
+                this.jump = jump;
+                this.left = left;
+                this.right = right;
+                Valid = true;
+            }
+
+            public int Horizonal => (right ? 1 : 0) - (left ? 1 : 0);
+
+            public void Validate()
+            {
+                if (!Valid) { }
+                //Debug.LogError("Input Invalid");
+                throw new Exception("Input is not valid");
+            }
         }
 
-        public int Horizonal => (right ? 1 : 0) - (left ? 1 : 0);
-
-        public void Validate()
+        public struct ObjectState
         {
-            if (!Valid) { }
-            //Debug.LogError("Input Invalid");
-            //throw new Exception("State is not valid");
-        }
-    }
+            public readonly bool Valid;
+            public readonly Vector3 position;
+            public readonly Vector3 velocity;
 
-    public struct ObjectState
-    {
-        public readonly bool Valid;
-        public readonly Vector3 position;
-        public readonly Vector3 velocity;
+            public ObjectState(Vector3 position, Vector3 velocity)
+            {
+                this.position = position;
+                this.velocity = velocity;
+                Valid = true;
+            }
 
-        public ObjectState(Vector3 position, Vector3 velocity)
-        {
-            this.position = position;
-            this.velocity = velocity;
-            Valid = true;
-        }
-
-        public void Validate()
-        {
-            if (!Valid) { }
-            //Debug.LogError("State Invalid");
-            //throw new Exception("State is not valid");
+            public void Validate()
+            {
+                if (!Valid) { }
+                //Debug.LogError("State Invalid");
+                throw new Exception("State is not valid");
+            }
         }
     }
 }

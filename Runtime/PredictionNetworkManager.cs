@@ -15,7 +15,6 @@ namespace JamesFrowen.CSP
         private void Awake()
         {
             Physics.autoSimulation = false;
-            Physics.autoSyncTransforms = false;
             if (instance == null)
             {
                 instance = this;
