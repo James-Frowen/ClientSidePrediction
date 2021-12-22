@@ -62,14 +62,16 @@ namespace JamesFrowen.CSP
             tick++;
             onTick?.Invoke(tick - clientDelay);
             UnityEngine.Debug.Log($"Client tick {tick - clientDelay}");
-            IEnumerator serverTick = Server.Tick_v3(tick);
 
-            while (serverTick.MoveNext())
-            {
-                if (!autoServer)
-                    yield return null;
-            }
-            UnityEngine.Debug.Log($"Server tick {tick}");
+            throw new System.NotImplementedException();
+            //IEnumerator serverTick = Server.Tick(tick);
+
+            //while (serverTick.MoveNext())
+            //{
+            //    if (!autoServer)
+            //        yield return null;
+            //}
+            //UnityEngine.Debug.Log($"Server tick {tick}");
         }
 
         float previous = 0;
