@@ -107,7 +107,7 @@ namespace JamesFrowen.CSP
         private void ApplyInput(InputState input, InputState previous)
         {
             input.Validate();
-            previous.Validate();
+            //previous.Validate();
             const float speed = 15;
 
             Vector3 move = input.Horizonal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
@@ -181,8 +181,9 @@ namespace JamesFrowen.CSP
         Queue<(int sent, int receive, ObjectState received)> stateSendHolder = new Queue<(int, int, ObjectState)>();
         void HandleInputMessage(INetworkPlayer _sender, InputMessage message)
         {
-            Debug.Log($"recieved INPUT for {message.tick}");
-            tickRunner.Server.OnReceiveInput(message);
+            //Debug.Log($"recieved INPUT for {message.tick}");
+            ServerController server = _sender == null ? tickRunner.Server : _server;
+            server.OnReceiveInput(message);
         }
 
         [ClientRpc(channel = Channel.Unreliable)]
@@ -229,6 +230,7 @@ namespace JamesFrowen.CSP
             public int lastRecievedTick = NO_VALUE;
             public ObjectState lastRecievedState;
 
+            public int lastSimTick;
 
             public void ReceiveState(int tick, ObjectState state)
             {
@@ -243,6 +245,8 @@ namespace JamesFrowen.CSP
                 unappliedTick = true;
                 lastRecievedTick = tick;
                 lastRecievedState = state;
+
+                Resimulate(tick);
             }
 
 
@@ -253,61 +257,97 @@ namespace JamesFrowen.CSP
             }
 
 
-            public void Tick(int tick)
-            {
-                int tickDelay = CalcualteTickDifference();
 
-                // todo add this tick delay stuff to tick runner rather than inside tick
-                throw new System.NotImplementedException();
+            public void Resimulate(int receivedTick)
+            {
+                // if receivedTick = 100
+                // then we want to Simulate (100->101)
+                // so we pass tick 100 into Simulate
+
+                // if lastSimTick = 105
+                // then our last sim step will be (104->105)
+                for (int tick = receivedTick; tick < lastSimTick; tick++)
+                {
+                    behaviour.ApplyState(lastRecievedState);
+                    unappliedTick = false;
+
+                    // set forward appliying inputs
+                    // - exclude current tick, we will run this later
+                    if (tick - lastRecievedTick > BufferSize)
+                        throw new OverflowException("Inputs overflowed buffer");
+
+                    Simulate(tick);
+                }
+            }
+
+            /// <summary>
+            /// From tick N to N+1
+            /// </summary>
+            /// <param name="tick"></param>
+            private void Simulate(int tick)
+            {
+                InputState input = GetInput(tick);
+                InputState previous = GetInput(tick - 1);
+                behaviour.ApplyInput(input, previous);
+                behaviour.Simulate();
+            }
+
+            private int lastInputTick;
+
+            public void InputTick(int tick)
+            {
+                if (lastInputTick != tick - 1)
+                    throw new Exception("Inputs ticks called out of order");
+                lastInputTick = tick;
 
                 InputState thisTickInput = GetUnityInput();
                 SetInput(tick, thisTickInput);
                 behaviour.Copy.NoNetworkApply(thisTickInput);
                 behaviour.SendInput(tick, thisTickInput);
-
-                if (unappliedTick)
-                    Resim(tick - 1);
-
-                // step this tick
-                Step(tick);
             }
 
 
-            private int CalcualteTickDifference()
+            public void Tick(int inTick)
+            {
+                float tickDelay = getClientTick();
+
+                Debug.Log($"{tickDelay:0.0}");
+                // todo add this tick delay stuff to tick runner rather than inside tick
+                // maybe update tick/inputs at same interval as server
+                // use tick rate stuff from snapshot interpolation
+
+                // then use real time to send inputs to server??
+
+                // maybe look at https://github.com/Unity-Technologies/FPSSample/blob/master/Assets/Scripts/Game/Main/ClientGameLoop.cs
+
+                int clientTick = inTick + (int)Math.Floor(tickDelay);
+                while (clientTick > lastSimTick)
+                {
+                    // set lastSim to +1, so if we receive new snapshot, then we sim up to 106 again
+                    // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
+                    // todo: what happens if we do 2 at once, is that really a problem?
+                    lastSimTick++;
+
+                    InputTick(lastSimTick);
+
+                    // we have inputs for 105, now we can simulate 106
+                    Simulate(lastSimTick);
+                }
+            }
+
+            private float getClientTick()
+            {
+                // +2 to make sure inputs always get to server before simulation
+                return 2 + calcualteTickDifference();
+            }
+            private float calcualteTickDifference()
             {
                 double oneWayTrip = behaviour.NetworkTime.Rtt / 2;
                 float tickTime = behaviour.tickRunner.TickInterval;
 
-                double tickDifference = oneWayTrip * tickTime;
-                // +2 to make sure inputs always get to server before simulation
-                return 2 + (int)Math.Floor(tickDifference);
-            }
-
-            private void Resim(int tick)
-            {
-                // set state to server's state
-                behaviour.ApplyState(lastRecievedState);
-
-                // set forward appliying inputs
-                // - exclude current tick, we will run this later
-                if (tick - lastRecievedTick > BufferSize)
-                    throw new OverflowException("Inputs overflowed buffer");
-
-                // todo is this number right
-                for (int t = lastRecievedTick; t < tick; t++)
-                {
-                    Step(t);
-                }
-
-                unappliedTick = false;
-            }
-
-            private void Step(int t)
-            {
-                InputState input = GetInput(t);
-                InputState previous = GetInput(t - 1);
-                behaviour.ApplyInput(input, previous);
-                behaviour.Simulate();
+                double tickDifference = oneWayTrip / tickTime;
+                return (float)tickDifference;
+                //return (int)Math.Floor(tickDifference);
             }
 
             InputState GetUnityInput()
@@ -393,7 +433,9 @@ namespace JamesFrowen.CSP
 
             public void Validate()
             {
-                if (!Valid) { }
+                if (Valid)
+                    return;
+
                 //Debug.LogError("Input Invalid");
                 throw new Exception("Input is not valid");
             }
@@ -414,7 +456,9 @@ namespace JamesFrowen.CSP
 
             public void Validate()
             {
-                if (!Valid) { }
+                if (Valid)
+                    return;
+
                 //Debug.LogError("State Invalid");
                 throw new Exception("State is not valid");
             }
