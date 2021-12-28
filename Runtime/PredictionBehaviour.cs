@@ -406,6 +406,10 @@ namespace JamesFrowen.CSP
 
                     behaviour.ApplyInput(input, previous);
                 }
+                else
+                {
+                    Debug.LogWarning($"No inputs for {tick}");
+                }
 
                 behaviour.Simulate();
                 behaviour.SendState(tick, behaviour.GatherState());
