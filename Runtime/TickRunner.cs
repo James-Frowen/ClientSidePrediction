@@ -55,7 +55,7 @@ namespace JamesFrowen.CSP
             }
         }
 
-        internal PredictionBehaviour.ServerController Server { get; set; }
+        //internal PredictionBehaviour.ServerController Server { get; set; }
 
         IEnumerator ManualUpdate()
         {

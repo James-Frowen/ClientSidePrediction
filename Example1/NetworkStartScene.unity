@@ -222,7 +222,7 @@ MonoBehaviour:
   ServerObjectManager: {fileID: 1143117125}
   ClientObjectManager: {fileID: 1143117124}
   prefab: {fileID: 5961735504659903513, guid: 552c715ebac97b64abb2ced0e788f565, type: 3}
-  scene: Assets/ClientSidePrediction/Example/PredictionScene.unity
+  scene: Assets/ClientSidePrediction/Example1/PredictionScene.unity
 --- !u!114 &1143117127
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -237,8 +237,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   TickRate: 50
   TimeScale: 1
-  fakeSend: 1
-  fakeDelay: 0
 --- !u!114 &1143117128
 MonoBehaviour:
   m_ObjectHideFlags: 0

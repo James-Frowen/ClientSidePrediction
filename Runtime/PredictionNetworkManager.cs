@@ -55,11 +55,10 @@ namespace JamesFrowen.CSP
                 clone.GetComponent<Renderer>().material.color = Color.green;
 
                 GameObject clone2 = Instantiate(prefab);
-                PredictionBehaviour behaviour2 = clone2.GetComponent<PredictionBehaviour>();
-                clone.GetComponent<PredictionBehaviour>().Copy = behaviour2;
-                behaviour2.physics = clientScene2.GetPhysicsScene();
-                behaviour2.GetComponent<Renderer>().material.color = Color.blue;
-                behaviour2.tickRunner = GetComponent<TickRunner>();
+                IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
+                clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
+                behaviour2.Setup(GetComponent<TickRunner>());
+                clone2.GetComponent<Renderer>().material.color = Color.blue;
 
                 SceneManager.MoveGameObjectToScene(clone2, clientScene2);
 

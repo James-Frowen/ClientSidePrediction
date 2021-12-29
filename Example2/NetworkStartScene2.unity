@@ -313,8 +313,8 @@ MonoBehaviour:
   NetworkSceneManager: {fileID: 0}
   ServerObjectManager: {fileID: 1143117125}
   ClientObjectManager: {fileID: 1143117124}
-  prefab: {fileID: 5961735504659903513, guid: 552c715ebac97b64abb2ced0e788f565, type: 3}
-  scene: Assets/ClientSidePrediction/Example/PredictionScene.unity
+  prefab: {fileID: 5961735504659903513, guid: a5f51595f7dcb2245bf2b0d4f354fea3, type: 3}
+  scene: Assets/ClientSidePrediction/Example2/PredictionScene2.unity
 --- !u!114 &1143117127
 MonoBehaviour:
   m_ObjectHideFlags: 0

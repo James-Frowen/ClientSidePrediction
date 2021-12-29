@@ -121,11 +121,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 5961735504659903513}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 49826b8a97588f94780970f6f11b032c, type: 3}
+  m_Script: {fileID: 11500000, guid: 23bbda55f658edd4793b32b85a9bafb4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
+  tickRunner: {fileID: 0}
 --- !u!114 &5961735504659903512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -145,7 +146,7 @@ MonoBehaviour:
   _sceneId: 0
   ServerObjectManager: {fileID: 0}
   ClientObjectManager: {fileID: 0}
-  _prefabHash: 1775862339
+  _prefabHash: 811087570
   _onStartServer:
     _event:
       m_PersistentCalls:
