@@ -139,18 +139,19 @@ namespace JamesFrowen.CSP
         }
 
 
+        // todo add this tick delay stuff to tick runner rather than inside tick
+        // maybe update tick/inputs at same interval as server
+        // use tick rate stuff from snapshot interpolation
+
+        // then use real time to send inputs to server??
+
+        // maybe look at https://github.com/Unity-Technologies/FPSSample/blob/master/Assets/Scripts/Game/Main/ClientGameLoop.cs
         public void Tick(int inTick)
         {
+            // delay from latency to make sure inputs reach server in time
             float tickDelay = getClientTick();
 
             Debug.Log($"{tickDelay:0.0}");
-            // todo add this tick delay stuff to tick runner rather than inside tick
-            // maybe update tick/inputs at same interval as server
-            // use tick rate stuff from snapshot interpolation
-
-            // then use real time to send inputs to server??
-
-            // maybe look at https://github.com/Unity-Technologies/FPSSample/blob/master/Assets/Scripts/Game/Main/ClientGameLoop.cs
 
             int clientTick = inTick + (int)Math.Floor(tickDelay);
             while (clientTick > lastSimTick)
@@ -205,6 +206,7 @@ namespace JamesFrowen.CSP
 
         internal void OnReceiveInput(int tick, TInput[] newInputs)
         {
+            if (logger.LogEnabled()) logger.Log($"received inputs for {tick}. length: {newInputs.Length}");
             int lastTick = tick;
 
             for (int i = 0; i < newInputs.Length; i++)

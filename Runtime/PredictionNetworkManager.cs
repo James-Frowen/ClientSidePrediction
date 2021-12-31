@@ -55,12 +55,12 @@ namespace JamesFrowen.CSP
                 clone.GetComponent<Renderer>().material.color = Color.green;
 
                 GameObject clone2 = Instantiate(prefab);
+                SceneManager.MoveGameObjectToScene(clone2, clientScene2);
                 IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
                 clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
                 behaviour2.Setup(GetComponent<TickRunner>());
                 clone2.GetComponent<Renderer>().material.color = Color.blue;
 
-                SceneManager.MoveGameObjectToScene(clone2, clientScene2);
 
                 clone.GetComponent<Renderer>().enabled = true;
                 clone2.GetComponent<Renderer>().enabled = true;
