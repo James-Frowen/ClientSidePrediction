@@ -21,7 +21,6 @@ namespace JamesFrowen.CSP
                 StartCoroutine(Setup());
             }
         }
-
         private IEnumerator Setup()
         {
             UnityEngine.AsyncOperation serverOp = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });

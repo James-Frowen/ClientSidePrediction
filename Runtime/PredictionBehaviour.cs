@@ -8,27 +8,153 @@
  *******************************************************/
 
 using System;
+using System.Collections.Generic;
 using Mirage;
 using Mirage.Logging;
+using Mirage.Serialization;
+using Mirage.SocketLayer;
 using UnityEngine;
+
 
 namespace JamesFrowen.CSP
 {
+    public abstract class PredictionBehaviour<TInput, TState> : NetworkBehaviour where TInput : IInputState
+    {
+        TickRunner tickRunner;
+        ClientController<TInput, TState> _client;
+        ServerController<TInput, TState> _server;
+
+        Dictionary<int, TInput> pendingInputs = new Dictionary<int, TInput>();
+
+        public abstract TInput GetInput();
+        public abstract TInput MissingInput(TInput previous, int previousTick, int currentTick);
+        public abstract void ApplyInput(TInput input, TInput previous);
+        public abstract void ApplyState(TState state);
+        public abstract TState GatherState();
+        public abstract void NetworkFixedUpdate(float fixedDelta);
+
+        // todo generate by weaver
+        protected abstract void RegisterInputMessage(NetworkServer server, Action<int, TInput[]> handler);
+        protected abstract void PackInputMessage(NetworkWriter writer, int tick, TInput[] inputs);
+
+        protected virtual void Awake()
+        {
+            Identity.OnStartServer.AddListener(() =>
+            {
+                tickRunner = (Server as MonoBehaviour).GetComponent<TickRunner>();
+                _server = new ServerController<TInput, TState>(this, tickRunner, Helper.BufferSize);
+                // todo remove tick after destroyed
+
+                if (tickRunner.slowMode)
+                {
+                    throw new NotImplementedException("Slow mode not supported");
+                    //tickRunner.Server = _server;
+                }
+                else
+                {
+                    tickRunner.onTick += _server.Tick;
+                }
+
+                // todo why doesn't IServer have message handler
+                var networkServer = ((NetworkServer)Identity.Server);
+                RegisterInputMessage(networkServer, (tick, inputs) => _server.OnReceiveInput(tick, inputs));
+            });
+            Identity.OnStartClient.AddListener(() =>
+            {
+                tickRunner = (Client as MonoBehaviour).GetComponent<TickRunner>();
+                _client = new ClientController<TInput, TState>(this, NetworkTime, tickRunner, Helper.BufferSize);
+                // todo remove tick after destroyed
+                tickRunner.onTick += _client.Tick;
+            });
+        }
+
+
+        // for slow mode
+        //Queue<(int sent, int receive, InputMessage received)> inputSendHolder = new Queue<(int, int, InputMessage)>();
+        //Queue<(int sent, int receive, TState received)> stateSendHolder = new Queue<(int, int, TState)>();
+
+        [Client]
+        public void SendInput(int tick, TInput state)
+        {
+            if (this is IDebugPredictionBehaviour debug)
+                debug.Copy.NoNetworkApply(state);
+
+            pendingInputs.Add(tick, state);
+
+            var inputs = new TInput[pendingInputs.Count];
+            foreach (KeyValuePair<int, TInput> pending in pendingInputs)
+            {
+                inputs[tick - pending.Key] = pending.Value;
+            }
+
+            if (tickRunner.slowMode)
+            {
+                throw new NotImplementedException("Slow mode not supported");
+                //inputSendHolder.Enqueue((tick, tick + tickRunner.fakeDelay, msg));
+                //while (inputSendHolder.Count > 0 && inputSendHolder.Peek().receive <= tick)
+                //{
+                //    receiveInput();
+                //}
+
+                //void receiveInput()
+                //{
+                //    (int sent, int receive, InputMessage received) pack = inputSendHolder.Dequeue();
+                //    HandleInputMessage(null, pack.received);
+                //    for (int i = 0; i < pack.received.inputs.Length; i++)
+                //    {
+                //        // once message is acked, remove all inputs starting at the tick
+                //        pendingInputs.Remove(pack.sent - i);
+                //    }
+                //}
+            }
+            else
+            {
+                IConnection conn = Client.Player.Connection;
+
+                using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
+                {
+                    PackInputMessage(writer, tick, inputs);
+
+                    INotifyToken token = conn.SendNotify(writer.ToArraySegment());
+                    token.Delivered += () =>
+                    {
+                        for (int i = 0; i < inputs.Length; i++)
+                        {
+                            // once message is acked, remove all inputs starting at the tick
+                            pendingInputs.Remove(tick - i);
+                        }
+                    };
+                }
+            }
+
+        }
+
+        public abstract void SendState(int tick, TState state);
+        protected void SendState_Receive(int tick, TState state)
+        {
+            if (tickRunner.slowMode)
+            {
+                throw new NotImplementedException("Slow mode not supported");
+                //stateSendHolder.Enqueue((tick, tick + tickRunner.fakeDelay, state));
+                //while (stateSendHolder.Count > 0 && stateSendHolder.Peek().receive <= tick)
+                //{
+                //    (int sent, int receive, TState received) pack = stateSendHolder.Dequeue();
+                //    _client.ReceiveState(pack.sent, pack.received);
+                //}
+            }
+            else
+            {
+                _client.ReceiveState(tick, state);
+            }
+        }
+    }
+
     public interface IDebugPredictionBehaviour
     {
         IDebugPredictionBehaviour Copy { get; set; }
 
+        void NoNetworkApply(object input);
         void Setup(TickRunner runner);
-    }
-    public interface IPredictionBehaviour<TInput, TState>
-    {
-        void ApplyInput(TInput input, TInput previous);
-        void Simulate();
-        void SendState(int tick, TState p);
-        TState GatherState();
-        void ApplyState(TState lastRecievedState);
-        TInput GetUnityInput();
-        void SendInput(int tick, TInput thisTickInput);
     }
 
     internal class Helper
@@ -47,13 +173,14 @@ namespace JamesFrowen.CSP
         }
     }
 
-    public class ClientController<TInput, TState>
+    public class ClientController<TInput, TState> where TInput : IInputState
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientController");
 
-        readonly IPredictionBehaviour<TInput, TState> behaviour;
+        readonly PredictionBehaviour<TInput, TState> behaviour;
         readonly NetworkTime networkTime;
         readonly TickRunner tickRunner;
+        readonly PhysicsScene physics;
 
         TInput[] _inputBuffer;
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
@@ -83,9 +210,10 @@ namespace JamesFrowen.CSP
         }
 
 
-        public ClientController(IPredictionBehaviour<TInput, TState> behaviour, NetworkTime networkTime, TickRunner tickRunner, int bufferSize)
+        public ClientController(PredictionBehaviour<TInput, TState> behaviour, NetworkTime networkTime, TickRunner tickRunner, int bufferSize)
         {
             this.behaviour = behaviour;
+            physics = behaviour.gameObject.scene.GetPhysicsScene();
             _inputBuffer = new TInput[bufferSize];
             this.networkTime = networkTime;
             this.tickRunner = tickRunner;
@@ -122,7 +250,8 @@ namespace JamesFrowen.CSP
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);
             behaviour.ApplyInput(input, previous);
-            behaviour.Simulate();
+            behaviour.NetworkFixedUpdate(tickRunner.TickInterval);
+            physics.Simulate(tickRunner.TickInterval);
         }
 
         private int lastInputTick;
@@ -133,7 +262,7 @@ namespace JamesFrowen.CSP
                 throw new Exception("Inputs ticks called out of order");
             lastInputTick = tick;
 
-            TInput thisTickInput = behaviour.GetUnityInput();
+            TInput thisTickInput = behaviour.GetInput();
             SetInput(tick, thisTickInput);
             behaviour.SendInput(tick, thisTickInput);
         }
@@ -184,11 +313,14 @@ namespace JamesFrowen.CSP
         }
     }
 
+
     public class ServerController<TInput, TState> where TInput : IInputState
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 
-        readonly IPredictionBehaviour<TInput, TState> behaviour;
+        readonly PredictionBehaviour<TInput, TState> behaviour;
+        readonly TickRunner tickRunner;
+        readonly PhysicsScene physics;
 
         TInput[] _inputBuffer;
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
@@ -198,9 +330,11 @@ namespace JamesFrowen.CSP
 
         int lastRecieved = -1;
 
-        public ServerController(IPredictionBehaviour<TInput, TState> behaviour, int bufferSize)
+        public ServerController(PredictionBehaviour<TInput, TState> behaviour, TickRunner tickRunner, int bufferSize)
         {
             this.behaviour = behaviour;
+            this.tickRunner = tickRunner;
+            physics = behaviour.gameObject.scene.GetPhysicsScene();
             _inputBuffer = new TInput[bufferSize];
         }
 
@@ -238,7 +372,8 @@ namespace JamesFrowen.CSP
                 Debug.LogWarning($"No inputs for {tick}");
             }
 
-            behaviour.Simulate();
+            behaviour.NetworkFixedUpdate(tickRunner.TickInterval);
+            physics.Simulate(tickRunner.TickInterval);
             behaviour.SendState(tick, behaviour.GatherState());
 
             ClearPreviousInput(tick);

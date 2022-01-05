@@ -1,0 +1,18 @@
+{
+    "name": "JamesFrowen.ClientSidePrediction.Example1",
+    "references": [
+        "GUID:30817c1a0e6d646d99c048fc403f5979",
+        "GUID:c0b2064c294eb174c9f3f7da398eb677",
+        "GUID:2353400444788674ab8945effbb8b282",
+        "GUID:b93d7788799c5f840b4e3fdc0c9d9069"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
