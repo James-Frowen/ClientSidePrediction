@@ -77,7 +77,7 @@ namespace JamesFrowen.CSP
         public void SendInput(int tick, TInput state)
         {
             if (this is IDebugPredictionBehaviour debug)
-                debug.Copy.NoNetworkApply(state);
+                debug.Copy?.NoNetworkApply(state);
 
             pendingInputs.Add(tick, state);
 
