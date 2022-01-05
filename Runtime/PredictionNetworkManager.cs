@@ -33,7 +33,7 @@ namespace JamesFrowen.CSP
                 GameObject clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, serverScene);
                 ServerObjectManager.AddCharacter(player, clone);
-                clone.GetComponent<Renderer>().material.color = Color.red;
+                clone.GetComponent<Renderer>().material.color = new Color(1, 0, 0, 0.2f);
 
                 clone.GetComponent<Renderer>().enabled = true;
             });

@@ -221,6 +221,7 @@ namespace JamesFrowen.CSP
 
         public void Resimulate(int receivedTick)
         {
+            Debug.Log($"Resimulate from {receivedTick} to {lastSimTick}");
             // if receivedTick = 100
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
@@ -280,7 +281,7 @@ namespace JamesFrowen.CSP
             // delay from latency to make sure inputs reach server in time
             float tickDelay = getClientTick();
 
-            Debug.Log($"{tickDelay:0.0}");
+            //Debug.Log($"{tickDelay:0.0}");
 
             int clientTick = inTick + (int)Math.Floor(tickDelay);
             while (clientTick > lastSimTick)
@@ -289,6 +290,8 @@ namespace JamesFrowen.CSP
                 // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
                 // todo: what happens if we do 2 at once, is that really a problem?
                 lastSimTick++;
+
+                Debug.Log($"Client tick from {lastSimTick}, Client Delay {tickDelay:0.0}");
 
                 InputTick(lastSimTick);
 
