@@ -7,202 +7,120 @@
  * permission of James Frowen
  *******************************************************/
 
+using System;
+using Mirage;
+using Mirage.Logging;
+using Mirage.Serialization;
 using UnityEngine;
 
 namespace JamesFrowen.CSP.Example2
 {
-    //public class PredictionExample2 : NetworkBehaviour, IPredictionBehaviour<InputState, ObjectState>, IDebugPredictionBehaviour
-    //{
-    //    static readonly ILogger logger = LogFactory.GetLogger<PredictionExample2>();
+    public class PredictionExample2 : PredictionBehaviour<InputState, ObjectState>, IDebugPredictionBehaviour
+    {
+        [SerializeField] float speed = 15;
 
-    //    public TickRunner tickRunner;
-    //    private Rigidbody body;
+        static readonly ILogger logger = LogFactory.GetLogger<PredictionExample2>();
 
-    //    PredictionExample2 _copy;
-    //    IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
+        private Rigidbody body;
 
-    //    public PhysicsScene physics;
+        protected override void Awake()
+        {
+            body = GetComponent<Rigidbody>();
 
-    //    public void Simulate()
-    //    {
-    //        // stronger gravity when moving down
-    //        float gravity = body.velocity.y < 0 ? 3 : 1;
-    //        body.AddForce(gravity * Physics.gravity, ForceMode.Acceleration);
-    //        body.velocity += (gravity * Physics.gravity) * tickRunner.TickInterval;
+            base.Awake();
+        }
 
-    //        physics.Simulate(tickRunner.TickInterval);
-    //    }
+        public override void NetworkFixedUpdate(float fixedDelta)
+        {
+            // stronger gravity when moving down
+            float gravity = body.velocity.y < 0 ? 3 : 1;
+            body.AddForce(gravity * Physics.gravity, ForceMode.Acceleration);
+            body.velocity += (gravity * Physics.gravity) * fixedDelta;
+        }
 
-    //    InputState noNetworkPrevious;
-    //    private void NoNetworkApply(InputState input)
-    //    {
-    //        ApplyInput(input, noNetworkPrevious);
-    //        Simulate();
-    //        noNetworkPrevious = input;
-    //    }
+        public override void ApplyState(ObjectState state)
+        {
+            body.position = state.position;
+            body.rotation = state.rotation;
+            body.velocity = state.velocity;
+            body.angularVelocity = state.angularVelocity;
+        }
 
-    //    ClientController<InputState, ObjectState> _client;
-    //    ServerController<InputState, ObjectState> _server;
+        public override ObjectState GatherState()
+        {
+            return new ObjectState(body);
+        }
 
-    //    private void Awake()
-    //    {
-    //        body = GetComponent<Rigidbody>();
+        public override void ApplyInput(InputState input, InputState previous)
+        {
+            // normalised so that speed isn't faster if moving diagonal
+            Vector3 move = new Vector3(x: input.Horizontal, y: 0, z: input.Vertical).normalized;
 
-    //        Identity.OnStartServer.AddListener(() =>
-    //        {
-    //            _server = new ServerController<InputState, ObjectState>(this, Helper.BufferSize);
-    //            tickRunner = (Server as MonoBehaviour).GetComponent<TickRunner>();
-    //            // todo remove tick after destroyed
+            Vector3 topOfCube = transform.position + Vector3.up * .5f;
+            body.AddForceAtPosition(speed * move, topOfCube, ForceMode.Acceleration);
+        }
 
-    //            if (tickRunner.slowMode)
-    //            {
-    //                throw new NotImplementedException();
-    //                //tickRunner.Server = _server;
-    //            }
-    //            else
-    //            {
-    //                tickRunner.onTick += _server.Tick;
-    //            }
-    //            physics = gameObject.scene.GetPhysicsScene();
+        public override InputState MissingInput(InputState previous, int previousTick, int currentTick)
+        {
+            // just copy old input, It is likely that missing input is just same as previous
+            return previous;
+        }
 
-    //            // todo why doesn't IServer have message handler
-    //            ((NetworkServer)Identity.Server).MessageHandler.RegisterHandler<InputMessage>(HandleInputMessage);
-    //        });
-    //        Identity.OnStartClient.AddListener(() =>
-    //        {
-    //            tickRunner = (Client as MonoBehaviour).GetComponent<TickRunner>();
-    //            _client = new ClientController<InputState, ObjectState>(this, NetworkTime, tickRunner, Helper.BufferSize);
-    //            // todo remove tick after destroyed
-    //            tickRunner.onTick += _client.Tick;
-    //            physics = gameObject.scene.GetPhysicsScene();
-    //        });
-    //    }
-    //    void IDebugPredictionBehaviour.Setup(TickRunner runner)
-    //    {
-    //        tickRunner = runner;
-    //        physics = gameObject.scene.GetPhysicsScene();
-    //    }
+        public override InputState GetInput()
+        {
+            return new InputState(
+                horizontal: (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0),
+                vertical: (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0)
+            );
+        }
 
-    //    public void ApplyState(ObjectState state)
-    //    {
-    //        body.position = state.position;
-    //        body.velocity = state.velocity;
-    //        body.rotation = Quaternion.identity;
-    //        body.angularVelocity = Vector3.zero;
-    //    }
+        #region Move to weaver
+        protected override void RegisterInputMessage(NetworkServer server, Action<int, InputState[]> handler)
+        {
+            server.MessageHandler.RegisterHandler<InputMessage>(x => handler.Invoke(x.tick, x.inputs));
+        }
+        protected override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
+        {
+            var msg = new InputMessage
+            {
+                tick = tick,
+                inputs = inputs,
+            };
+            MessagePacker.Pack(msg, writer);
+        }
+        public override void SendState(int tick, ObjectState state)
+        {
+            SendState_RPC(tick, state);
+        }
+        [ClientRpc(channel = Channel.Unreliable)]
+        private void SendState_RPC(int tick, ObjectState state)
+        {
+            SendState_Receive(tick, state);
+        }
+        #endregion
 
-    //    public ObjectState GatherState()
-    //    {
-    //        return new ObjectState(body.position, body.velocity);
-    //    }
 
-    //    public void ApplyInput(InputState input, InputState previous)
-    //    {
-    //        const float speed = 15;
+        #region IDebugPredictionBehaviour
+        PredictionExample2 _copy;
+        TickRunner _DebugRunner;
+        IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
 
-    //        Vector3 move = input.Horizonal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
-    //        body.AddForce(speed * move, ForceMode.Acceleration);
-    //        if (input.jump && !previous.jump)
-    //        {
-    //            body.AddForce(Vector3.up * 10, ForceMode.Impulse);
-    //        }
-    //    }
+        void IDebugPredictionBehaviour.Setup(TickRunner runner)
+        {
+            _DebugRunner = runner;
+        }
 
-    //    //todo move to client controler
-    //    Dictionary<int, InputState> pendingInputs = new Dictionary<int, InputState>();
-
-    //    [Client]
-    //    public void SendInput(int tick, InputState state)
-    //    {
-    //        _copy.NoNetworkApply(state);
-    //        pendingInputs.Add(tick, state);
-
-    //        var msg = new InputMessage
-    //        {
-    //            tick = tick,
-    //            inputs = new InputState[pendingInputs.Count],
-    //        };
-    //        foreach (KeyValuePair<int, InputState> pending in pendingInputs)
-    //        {
-    //            msg.inputs[tick - pending.Key] = pending.Value;
-    //        }
-
-    //        if (tickRunner.slowMode)
-    //        {
-    //            inputSendHolder.Enqueue((tick, tick + tickRunner.fakeDelay, msg));
-    //            while (inputSendHolder.Count > 0 && inputSendHolder.Peek().receive <= tick)
-    //            {
-    //                receiveInput();
-    //            }
-    //        }
-    //        else
-    //        {
-    //            IConnection conn = Client.Player.Connection;
-
-    //            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
-    //            {
-    //                MessagePacker.Pack(msg, writer);
-    //                INotifyToken token = conn.SendNotify(writer.ToArraySegment());
-    //                token.Delivered += () =>
-    //                {
-    //                    for (int i = 0; i < msg.inputs.Length; i++)
-    //                    {
-    //                // once message is acked, remove all inputs starting at the tick
-    //                pendingInputs.Remove(tick - i);
-    //                    }
-    //                };
-    //            }
-    //        }
-    //    }
-
-    //    private void receiveInput()
-    //    {
-    //        (int sent, int receive, InputMessage received) pack = inputSendHolder.Dequeue();
-    //        HandleInputMessage(null, pack.received);
-    //        for (int i = 0; i < pack.received.inputs.Length; i++)
-    //        {
-    //            // once message is acked, remove all inputs starting at the tick
-    //            pendingInputs.Remove(pack.sent - i);
-    //        }
-    //    }
-
-    //    Queue<(int sent, int receive, InputMessage received)> inputSendHolder = new Queue<(int, int, InputMessage)>();
-    //    Queue<(int sent, int receive, ObjectState received)> stateSendHolder = new Queue<(int, int, ObjectState)>();
-    //    void HandleInputMessage(INetworkPlayer _sender, InputMessage message)
-    //    {
-    //        //Debug.Log($"recieved INPUT for {message.tick}");
-    //        //var server = _sender == null ? tickRunner.Server : _server;
-    //        _server.OnReceiveInput(message.tick, message.inputs);
-    //    }
-
-    //    [ClientRpc(channel = Channel.Unreliable)]
-    //    public void SendState(int tick, ObjectState state)
-    //    {
-    //        if (tickRunner.slowMode)
-    //        {
-    //            stateSendHolder.Enqueue((tick, tick + tickRunner.fakeDelay, state));
-    //            while (stateSendHolder.Count > 0 && stateSendHolder.Peek().receive <= tick)
-    //            {
-    //                (int sent, int receive, ObjectState received) pack = stateSendHolder.Dequeue();
-    //                _client.ReceiveState(pack.sent, pack.received);
-    //            }
-    //        }
-    //        else
-    //        {
-    //            _client.ReceiveState(tick, state);
-    //        }
-    //    }
-
-    //    public InputState GetInput()
-    //    {
-    //        return new InputState(
-    //            right: Input.GetKey(KeyCode.D),
-    //            left: Input.GetKey(KeyCode.A),
-    //            jump: Input.GetKey(KeyCode.Space)
-    //        );
-    //    }
-
-    //}
+        InputState noNetworkPrevious;
+        void IDebugPredictionBehaviour.NoNetworkApply(object _input)
+        {
+            var input = (InputState)_input;
+            ApplyInput(input, noNetworkPrevious);
+            NetworkFixedUpdate(_DebugRunner.TickInterval);
+            gameObject.scene.GetPhysicsScene().Simulate(_DebugRunner.TickInterval);
+            noNetworkPrevious = input;
+        }
+        #endregion
+    }
     public struct InputMessage
     {
         public int tick;
@@ -214,31 +132,32 @@ namespace JamesFrowen.CSP.Example2
         public bool Valid => _valid;
 
         public readonly bool _valid;
-        public readonly bool jump;
-        public readonly bool left;
-        public readonly bool right;
 
-        public InputState(bool right, bool left, bool jump)
+        [BitCountFromRange(-1, 1)] public readonly int Horizontal;
+        [BitCountFromRange(-1, 1)] public readonly int Vertical;
+
+        public InputState(int horizontal, int vertical)
         {
-            this.jump = jump;
-            this.left = left;
-            this.right = right;
+            Horizontal = horizontal;
+            Vertical = vertical;
             _valid = true;
         }
-
-        public int Horizonal => (right ? 1 : 0) - (left ? 1 : 0);
     }
 
     public struct ObjectState
     {
         public readonly bool Valid;
         public readonly Vector3 position;
+        [QuaternionPack(10)] public readonly Quaternion rotation;
         public readonly Vector3 velocity;
+        public readonly Vector3 angularVelocity;
 
-        public ObjectState(Vector3 position, Vector3 velocity)
+        public ObjectState(Rigidbody body)
         {
-            this.position = position;
-            this.velocity = velocity;
+            position = body.position;
+            rotation = body.rotation;
+            velocity = body.velocity;
+            angularVelocity = body.angularVelocity;
             Valid = true;
         }
     }
