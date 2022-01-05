@@ -67,6 +67,11 @@ namespace JamesFrowen.CSP
 
                 return clone.GetComponent<NetworkIdentity>();
             }, (spawned) => Destroy(spawned));
+            Client.Started.AddListener(() =>
+            {
+                // need lower frequency so RTT updates faster
+                Client.World.Time.PingInterval = 0.1f;
+            });
 
             Client.Connect();
         }
