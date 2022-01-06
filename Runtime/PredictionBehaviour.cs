@@ -20,6 +20,8 @@ namespace JamesFrowen.CSP
 {
     public abstract class PredictionBehaviour<TInput, TState> : NetworkBehaviour where TInput : IInputState
     {
+        public float ResimulateLerp = 0.1f;
+
         TickRunner tickRunner;
         ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
@@ -32,6 +34,7 @@ namespace JamesFrowen.CSP
         public abstract void ApplyState(TState state);
         public abstract TState GatherState();
         public abstract void NetworkFixedUpdate(float fixedDelta);
+        public abstract void ApplyStateLerp(TState current, TState next, float resimulateLerp);
 
         // todo generate by weaver
         protected abstract void RegisterInputMessage(NetworkServer server, Action<int, TInput[]> handler);
@@ -147,6 +150,7 @@ namespace JamesFrowen.CSP
                 _client.ReceiveState(tick, state);
             }
         }
+
     }
 
     public interface IDebugPredictionBehaviour
@@ -226,6 +230,7 @@ namespace JamesFrowen.CSP
             // if receivedTick = 100
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
+            TState current = behaviour.GatherState();
 
             // if lastSimTick = 105
             // then our last sim step will be (104->105)
@@ -243,6 +248,9 @@ namespace JamesFrowen.CSP
 
                 Simulate(tick);
             }
+
+            TState next = behaviour.GatherState();
+            behaviour.ApplyStateLerp(current, next, behaviour.ResimulateLerp);
         }
 
         /// <summary>

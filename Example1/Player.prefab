@@ -126,7 +126,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   syncMode: 0
   syncInterval: 0.1
-  tickRunner: {fileID: 0}
+  ResimulateLerp: 0.1
 --- !u!114 &5961735504659903512
 MonoBehaviour:
   m_ObjectHideFlags: 0

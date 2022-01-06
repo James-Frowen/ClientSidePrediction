@@ -12,6 +12,10 @@ namespace JamesFrowen.CSP
         public GameObject prefab;
         [Scene] public string scene;
 
+        public bool ShowServer;
+        public bool ShowClient;
+        public bool ShowNoNetwork;
+
         private void Awake()
         {
             Physics.autoSimulation = false;
@@ -35,7 +39,7 @@ namespace JamesFrowen.CSP
                 ServerObjectManager.AddCharacter(player, clone);
                 clone.GetComponent<Renderer>().material.color = new Color(1, 0, 0, 0.7f);
 
-                clone.GetComponent<Renderer>().enabled = true;
+                clone.GetComponent<Renderer>().enabled = ShowServer;
             });
 
 
@@ -52,17 +56,19 @@ namespace JamesFrowen.CSP
                 GameObject clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, clientScene);
                 clone.GetComponent<Renderer>().material.color = Color.green;
-                clone.GetComponent<Renderer>().enabled = true;
+                clone.GetComponent<Renderer>().enabled = ShowClient;
 
-                GameObject clone2 = Instantiate(prefab);
-                SceneManager.MoveGameObjectToScene(clone2, clientScene2);
-                IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
-                clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
-                behaviour2.Setup(GetComponent<TickRunner>());
-                clone2.GetComponent<Renderer>().material.color = Color.blue;
+                if (ShowNoNetwork)
+                {
+                    GameObject clone2 = Instantiate(prefab);
+                    SceneManager.MoveGameObjectToScene(clone2, clientScene2);
+                    IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
+                    clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
+                    behaviour2.Setup(GetComponent<TickRunner>());
+                    clone2.GetComponent<Renderer>().material.color = Color.blue;
 
-
-                clone2.GetComponent<Renderer>().enabled = true;
+                    clone2.GetComponent<Renderer>().enabled = true;
+                }
 
                 return clone.GetComponent<NetworkIdentity>();
             }, (spawned) => Destroy(spawned));

@@ -46,6 +46,15 @@ namespace JamesFrowen.CSP.Example2
             body.velocity = state.velocity;
             body.angularVelocity = state.angularVelocity;
         }
+        public override void ApplyStateLerp(ObjectState a, ObjectState b, float t)
+        {
+            ObjectState state = default;
+            state.position = Vector3.Lerp(a.position, b.position, t);
+            state.rotation = Quaternion.Slerp(a.rotation, b.rotation, t);
+            state.velocity = Vector3.Lerp(a.velocity, b.velocity, t);
+            state.angularVelocity = Vector3.Lerp(a.angularVelocity, b.angularVelocity, t);
+            ApplyState(state);
+        }
 
         public override ObjectState GatherState()
         {
@@ -102,6 +111,7 @@ namespace JamesFrowen.CSP.Example2
 
 
         #region IDebugPredictionBehaviour
+        bool _afterImage;
         PredictionExample2 _copy;
         TickRunner _DebugRunner;
         IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
@@ -124,6 +134,7 @@ namespace JamesFrowen.CSP.Example2
         static Transform AfterImageParent;
         void IDebugPredictionBehaviour.CreateAfterImage(object _state)
         {
+            if (!_afterImage) return;
             if (AfterImageParent == null)
                 AfterImageParent = new GameObject("AfterImage").transform;
 
@@ -184,11 +195,12 @@ namespace JamesFrowen.CSP.Example2
 
     public struct ObjectState
     {
-        public readonly bool Valid;
-        public readonly Vector3 position;
-        [QuaternionPack(10)] public readonly Quaternion rotation;
-        public readonly Vector3 velocity;
-        public readonly Vector3 angularVelocity;
+        public bool Valid;
+        public Vector3 position;
+        [QuaternionPack(10)]
+        public Quaternion rotation;
+        public Vector3 velocity;
+        public Vector3 angularVelocity;
 
         public ObjectState(Rigidbody body)
         {
