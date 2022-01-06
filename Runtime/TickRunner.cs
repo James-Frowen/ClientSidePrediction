@@ -1,11 +1,14 @@
 using System.Collections;
 using System.Diagnostics;
+using Mirage.Logging;
 using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
     public class TickRunner : MonoBehaviour
     {
+        static readonly ILogger logger = LogFactory.GetLogger<TickRunner>();
+
         public int TickRate = 50;
         public float TimeScale = 1f;
 
@@ -61,7 +64,7 @@ namespace JamesFrowen.CSP
         {
             tick++;
             onTick?.Invoke(tick - clientDelay);
-            UnityEngine.Debug.Log($"Client tick {tick - clientDelay}");
+            if (logger.LogEnabled()) logger.Log($"Client tick {tick - clientDelay}");
 
             throw new System.NotImplementedException();
             //IEnumerator serverTick = Server.Tick(tick);
@@ -71,7 +74,7 @@ namespace JamesFrowen.CSP
             //    if (!autoServer)
             //        yield return null;
             //}
-            //UnityEngine.Debug.Log($"Server tick {tick}");
+            //  if (logger.LogEnabled())   logger.Log($"Server tick {tick}");
         }
 
         float previous = 0;
@@ -98,7 +101,7 @@ namespace JamesFrowen.CSP
                 {
                     // if more than 100 frames behind then skip
                     // this is is only to stop editor breaking if using breakpoints
-                    UnityEngine.Debug.LogError($"Time Delta was {delta}, skipping tick Updates");
+                    if (logger.LogEnabled()) logger.LogError($"Time Delta was {delta}, skipping tick Updates");
                     return;
                 }
 #endif

@@ -58,7 +58,7 @@ namespace JamesFrowen.CSP.Example1
         {
             const float speed = 15;
 
-            Vector3 move = input.Horizonal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
+            Vector3 move = input.Horizontal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
             body.AddForce(speed * move, ForceMode.Acceleration);
             if (input.jump && !previous.jump)
             {
@@ -152,7 +152,7 @@ namespace JamesFrowen.CSP.Example1
             _valid = true;
         }
 
-        public int Horizonal => (right ? 1 : 0) - (left ? 1 : 0);
+        public int Horizontal => (right ? 1 : 0) - (left ? 1 : 0);
     }
 
     public struct ObjectState

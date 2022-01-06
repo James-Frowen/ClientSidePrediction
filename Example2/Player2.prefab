@@ -188,5 +188,5 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0.1
   positionOffset: {x: 0, y: 10, z: -12}
-  eularOffset: {x: 50, y: 0, z: 0}
+  eulerOffset: {x: 50, y: 0, z: 0}
   smooth: 0.1

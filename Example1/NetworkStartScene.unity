@@ -344,9 +344,9 @@ MonoBehaviour:
   settings:
     DropChance: 0
     DropSinFrequency: 0.5
-    Latancy: 0.1
-    LatancySinAmplitude: 0.03
-    LatancySinFrequency: 2
+    Latency: 0.1
+    LatencySinAmplitude: 0.03
+    LatencySinFrequency: 2
     JitterSinAmplitude: 0.005
     JitterSinFrequency: 40
   guiEnabled: 1

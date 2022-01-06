@@ -192,24 +192,23 @@ namespace JamesFrowen.CSP
         void SetInput(int tick, TInput state) => _inputBuffer[Helper.TickToBuffer(tick)] = state;
 
         bool unappliedTick;
-        int lastRecievedTick = Helper.NO_VALUE;
-        TState lastRecievedState;
+        int lastReceivedTick = Helper.NO_VALUE;
+        TState lastReceivedState;
 
         public int lastSimTick;
 
         public void ReceiveState(int tick, TState state)
         {
-            if (lastRecievedTick > tick)
+            if (lastReceivedTick > tick)
             {
                 logger.LogWarning("State out of order");
                 return;
             }
 
-
-            if (logger.LogEnabled()) logger.Log($"recieved STATE for {tick}");
+            if (logger.LogEnabled()) logger.Log($"received STATE for {tick}");
             unappliedTick = true;
-            lastRecievedTick = tick;
-            lastRecievedState = state;
+            lastReceivedTick = tick;
+            lastReceivedState = state;
         }
 
 
@@ -224,7 +223,7 @@ namespace JamesFrowen.CSP
 
         public void Resimulate(int receivedTick)
         {
-            Debug.Log($"Resimulate from {receivedTick} to {lastSimTick}");
+            logger.Log($"Resimulate from {receivedTick} to {lastSimTick}");
 
 
             // if receivedTick = 100
@@ -234,16 +233,16 @@ namespace JamesFrowen.CSP
 
             // if lastSimTick = 105
             // then our last sim step will be (104->105)
-            behaviour.ApplyState(lastRecievedState);
+            behaviour.ApplyState(lastReceivedState);
             if (behaviour is IDebugPredictionBehaviour debug)
-                debug.CreateAfterImage(lastRecievedState);
+                debug.CreateAfterImage(lastReceivedState);
             for (int tick = receivedTick; tick < lastSimTick; tick++)
             {
                 unappliedTick = false;
 
-                // set forward appliying inputs
+                // set forward Applying inputs
                 // - exclude current tick, we will run this later
-                if (tick - lastRecievedTick > _inputBuffer.Length)
+                if (tick - lastReceivedTick > _inputBuffer.Length)
                     throw new OverflowException("Inputs overflowed buffer");
 
                 Simulate(tick);
@@ -291,14 +290,13 @@ namespace JamesFrowen.CSP
         {
             if (unappliedTick)
             {
-                Resimulate(lastRecievedTick);
+                Resimulate(lastReceivedTick);
                 unappliedTick = false;
             }
 
             // delay from latency to make sure inputs reach server in time
             float tickDelay = getClientTick();
 
-            //Debug.Log($"{tickDelay:0.0}");
 
             int clientTick = inTick + (int)Math.Floor(tickDelay);
             while (clientTick > lastSimTick)
@@ -308,7 +306,7 @@ namespace JamesFrowen.CSP
                 // todo: what happens if we do 2 at once, is that really a problem?
                 lastSimTick++;
 
-                Debug.Log($"Client tick from {lastSimTick}, Client Delay {tickDelay:0.0}");
+                if (logger.LogEnabled())   logger.Log($"Client tick from {lastSimTick}, Client Delay {tickDelay:0.0}");
 
                 InputTick(lastSimTick);
 
@@ -320,16 +318,15 @@ namespace JamesFrowen.CSP
         private float getClientTick()
         {
             // +2 to make sure inputs always get to server before simulation
-            return 2 + calcualteTickDifference();
+            return 2 + calculateTickDifference();
         }
-        private float calcualteTickDifference()
+        private float calculateTickDifference()
         {
             double oneWayTrip = networkTime.Rtt / 2;
             float tickTime = tickRunner.TickInterval;
 
             double tickDifference = oneWayTrip / tickTime;
             return (float)tickDifference;
-            //return (int)Math.Floor(tickDifference);
         }
     }
 
@@ -348,7 +345,7 @@ namespace JamesFrowen.CSP
         /// <summary>Clears Previous inputs for tick (eg tick =100 clears tick 99's inputs</summary>
         void ClearPreviousInput(int tick) => SetInput(tick - 1, default);
 
-        int lastRecieved = -1;
+        int lastReceived = -1;
 
         public ServerController(PredictionBehaviour<TInput, TState> behaviour, TickRunner tickRunner, int bufferSize)
         {
@@ -368,13 +365,13 @@ namespace JamesFrowen.CSP
                 int t = lastTick - i;
                 TInput input = newInputs[i];
                 // if new
-                if (t > lastRecieved)
+                if (t > lastReceived)
                 {
                     SetInput(t, input);
                 }
             }
 
-            lastRecieved = Mathf.Max(lastRecieved, lastTick);
+            lastReceived = Mathf.Max(lastReceived, lastTick);
         }
 
 
@@ -389,7 +386,7 @@ namespace JamesFrowen.CSP
             }
             else
             {
-                Debug.LogWarning($"No inputs for {tick}");
+             if (logger.WarnEnabled())   logger.LogWarning($"No inputs for {tick}");
             }
 
             behaviour.NetworkFixedUpdate(tickRunner.TickInterval);

@@ -60,17 +60,17 @@ namespace JamesFrowen.Mirage.DebugScripts
         public float DropSinFrequency = 0.5f;
 
         /// <summary>
-        /// base latancy
+        /// base latency
         /// </summary>
-        public float Latancy = 100 / 1000f;
+        public float Latency = 100 / 1000f;
         /// <summary>
-        /// Sin Amplitude added to latancy
+        /// Sin Amplitude added to latency
         /// </summary>
-        public float LatancySinAmplitude = 30 / 1000f;
+        public float LatencySinAmplitude = 30 / 1000f;
         /// <summary>
-        /// Sin Frequency added to latancy
+        /// Sin Frequency added to latency
         /// </summary>
-        public float LatancySinFrequency = 2f;
+        public float LatencySinFrequency = 2f;
 
         /// <summary>
         /// Smaller changes in latency
@@ -78,7 +78,7 @@ namespace JamesFrowen.Mirage.DebugScripts
         public float JitterSinAmplitude = 5 / 1000f;
 
         /// <summary>
-        /// Sin Frequency added to latancy
+        /// Sin Frequency added to latency
         /// </summary>
         public float JitterSinFrequency = 40f;
     }
@@ -95,7 +95,7 @@ namespace JamesFrowen.Mirage.DebugScripts
         // these offsets done need to be settings because they just move the sin wave left/right from the origin
         // these will make sure that the sign waves dont overlap and have similar values to each other
         readonly double dropSinOffset;
-        readonly double latancySinOffset;
+        readonly double latencySinOffset;
         readonly double jitterSinOffset;
 
         // hard copies to endpoints because the one inner gives us may be changed and re-used
@@ -112,7 +112,7 @@ namespace JamesFrowen.Mirage.DebugScripts
             this.settings = settings;
             // how much dropChance Sin way will be offset
             dropSinOffset = random.NextDouble() * 2 * Math.PI;
-            latancySinOffset = random.NextDouble() * 2 * Math.PI;
+            latencySinOffset = random.NextDouble() * 2 * Math.PI;
             jitterSinOffset = random.NextDouble() * 2 * Math.PI;
         }
 
@@ -211,12 +211,12 @@ namespace JamesFrowen.Mirage.DebugScripts
         {
             // add 2 sin wave together so there will be chances between ticks and between seconds
 
-            double angle1 = Now() * settings.LatancySinFrequency + latancySinOffset;
+            double angle1 = Now() * settings.LatencySinFrequency + latencySinOffset;
             double angle2 = Now() * settings.JitterSinFrequency + jitterSinOffset;
-            float sin1 = Math.Sign(angle1) * settings.LatancySinAmplitude;
+            float sin1 = Math.Sign(angle1) * settings.LatencySinAmplitude;
             float sin2 = Math.Sign(angle2) * settings.JitterSinAmplitude;
 
-            return settings.Latancy + sin1 + sin2;
+            return settings.Latency + sin1 + sin2;
         }
 
         public bool Poll()
@@ -322,9 +322,9 @@ namespace JamesFrowen.Mirage.DebugScripts
                 GUILayout.Space(10);
 
                 GUILayout.Label("Lag", boldText);
-                sliderWithTextBox("base", ref settings.Latancy, 0, 0.5f, true);
-                sliderWithTextBox("amplitude 1", ref settings.LatancySinAmplitude, 0, 0.4f, true);
-                sliderWithTextBox("frequency 1", ref settings.LatancySinFrequency, 0.01f, 20f, true);
+                sliderWithTextBox("base", ref settings.Latency, 0, 0.5f, true);
+                sliderWithTextBox("amplitude 1", ref settings.LatencySinAmplitude, 0, 0.4f, true);
+                sliderWithTextBox("frequency 1", ref settings.LatencySinFrequency, 0.01f, 20f, true);
 
                 sliderWithTextBox("amplitude 2", ref settings.JitterSinAmplitude, 0, 0.1f, true);
                 sliderWithTextBox("frequency 2", ref settings.JitterSinFrequency, 10f, 200f, true);
