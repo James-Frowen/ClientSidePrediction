@@ -155,6 +155,7 @@ namespace JamesFrowen.CSP
 
         void NoNetworkApply(object input);
         void Setup(TickRunner runner);
+        void CreateAfterImage(object state);
     }
 
     internal class Helper
@@ -186,9 +187,9 @@ namespace JamesFrowen.CSP
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
         void SetInput(int tick, TInput state) => _inputBuffer[Helper.TickToBuffer(tick)] = state;
 
-        public bool unappliedTick;
-        public int lastRecievedTick = Helper.NO_VALUE;
-        public TState lastRecievedState;
+        bool unappliedTick;
+        int lastRecievedTick = Helper.NO_VALUE;
+        TState lastRecievedState;
 
         public int lastSimTick;
 
@@ -205,8 +206,6 @@ namespace JamesFrowen.CSP
             unappliedTick = true;
             lastRecievedTick = tick;
             lastRecievedState = state;
-
-            Resimulate(tick);
         }
 
 
@@ -222,15 +221,19 @@ namespace JamesFrowen.CSP
         public void Resimulate(int receivedTick)
         {
             Debug.Log($"Resimulate from {receivedTick} to {lastSimTick}");
+
+
             // if receivedTick = 100
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
 
             // if lastSimTick = 105
             // then our last sim step will be (104->105)
+            behaviour.ApplyState(lastRecievedState);
+            if (behaviour is IDebugPredictionBehaviour debug)
+                debug.CreateAfterImage(lastRecievedState);
             for (int tick = receivedTick; tick < lastSimTick; tick++)
             {
-                behaviour.ApplyState(lastRecievedState);
                 unappliedTick = false;
 
                 // set forward appliying inputs
@@ -278,6 +281,12 @@ namespace JamesFrowen.CSP
         // maybe look at https://github.com/Unity-Technologies/FPSSample/blob/master/Assets/Scripts/Game/Main/ClientGameLoop.cs
         public void Tick(int inTick)
         {
+            if (unappliedTick)
+            {
+                Resimulate(lastRecievedTick);
+                unappliedTick = false;
+            }
+
             // delay from latency to make sure inputs reach server in time
             float tickDelay = getClientTick();
 

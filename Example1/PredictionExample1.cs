@@ -121,6 +121,7 @@ namespace JamesFrowen.CSP.Example1
             gameObject.scene.GetPhysicsScene().Simulate(_DebugRunner.TickInterval);
             noNetworkPrevious = input;
         }
+        void IDebugPredictionBehaviour.CreateAfterImage(object state) { }
         #endregion
     }
     public struct InputMessage

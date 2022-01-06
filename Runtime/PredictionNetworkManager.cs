@@ -33,7 +33,7 @@ namespace JamesFrowen.CSP
                 GameObject clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, serverScene);
                 ServerObjectManager.AddCharacter(player, clone);
-                clone.GetComponent<Renderer>().material.color = new Color(1, 0, 0, 0.2f);
+                clone.GetComponent<Renderer>().material.color = new Color(1, 0, 0, 0.7f);
 
                 clone.GetComponent<Renderer>().enabled = true;
             });
@@ -54,15 +54,15 @@ namespace JamesFrowen.CSP
                 clone.GetComponent<Renderer>().material.color = Color.green;
                 clone.GetComponent<Renderer>().enabled = true;
 
-                //GameObject clone2 = Instantiate(prefab);
-                //SceneManager.MoveGameObjectToScene(clone2, clientScene2);
-                //IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
-                //clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
-                //behaviour2.Setup(GetComponent<TickRunner>());
-                //clone2.GetComponent<Renderer>().material.color = Color.blue;
+                GameObject clone2 = Instantiate(prefab);
+                SceneManager.MoveGameObjectToScene(clone2, clientScene2);
+                IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
+                clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
+                behaviour2.Setup(GetComponent<TickRunner>());
+                clone2.GetComponent<Renderer>().material.color = Color.blue;
 
 
-                //clone2.GetComponent<Renderer>().enabled = true;
+                clone2.GetComponent<Renderer>().enabled = true;
 
                 return clone.GetComponent<NetworkIdentity>();
             }, (spawned) => Destroy(spawned));

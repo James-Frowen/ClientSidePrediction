@@ -8,6 +8,7 @@
  *******************************************************/
 
 using System;
+using System.Threading.Tasks;
 using Mirage;
 using Mirage.Logging;
 using Mirage.Serialization;
@@ -119,8 +120,45 @@ namespace JamesFrowen.CSP.Example2
             gameObject.scene.GetPhysicsScene().Simulate(_DebugRunner.TickInterval);
             noNetworkPrevious = input;
         }
+
+        static Transform AfterImageParent;
+        void IDebugPredictionBehaviour.CreateAfterImage(object _state)
+        {
+            if (AfterImageParent == null)
+                AfterImageParent = new GameObject("AfterImage").transform;
+
+            var state = (ObjectState)_state;
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.parent = AfterImageParent;
+            Material mat = GetComponent<Renderer>().sharedMaterial;
+            Renderer renderer = cube.GetComponent<Renderer>();
+            renderer.material = Instantiate(mat);
+            _ = changeColorOverTime(cube, renderer.material);
+            cube.transform.SetPositionAndRotation(state.position, state.rotation);
+        }
+
+        private async Task changeColorOverTime(GameObject cube, Material material)
+        {
+            var a = new Color(1f, .4f, 0, 0.4f);
+            var b = new Color(1f, .4f, 0, 0.0f);
+
+            float start = Time.time;
+            float end = start + 1;
+            while (end > Time.time)
+            {
+                float t = (end - Time.time);
+                // starts at t=1, so a is end point
+                var color = Color.Lerp(b, a, t * t);
+                material.color = color;
+                await Task.Yield();
+            }
+
+            Destroy(material);
+            Destroy(cube);
+        }
         #endregion
     }
+
     public struct InputMessage
     {
         public int tick;
