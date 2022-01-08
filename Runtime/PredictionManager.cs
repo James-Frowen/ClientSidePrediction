@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using JamesFrowen.CSP.Simulations;
 using Mirage;
 using Mirage.Logging;
 using UnityEngine;
@@ -16,13 +17,11 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
-    /// <summary>
-    /// IMPORTANT: PredictionManager should be in the same scene that is being similated. It should have local physice mode
-    /// </summary>
     public class PredictionManager : MonoBehaviour
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.PredictionManager");
 
+        public SimuationMode physicsMode;
         public NetworkServer Server;
         public NetworkClient Client;
         public TickRunner tickRunner;
@@ -31,34 +30,47 @@ namespace JamesFrowen.CSP
         ClientManager clientManager;
         ServerManager serverManager;
 
+        IPredictionSimulation _simulation;
+
+        /// <summary>
+        /// Used to set custom Simulation or to set default simulation with different local physics scene
+        /// </summary>
+        /// <param name="simulation"></param>
+        public void SetPredictionSimulation(IPredictionSimulation simulation)
+        {
+            if (serverManager != null) throw new InvalidOperationException("Can't set simulation after server has already started");
+            if (clientManager != null) throw new InvalidOperationException("Can't set simulation after client has already started");
+
+            _simulation = simulation;
+        }
+
         private void OnValidate()
         {
             if (clientManager != null)
-                clientManager.ClientDelay = 2;
+                clientManager.ClientDelay = clientDelay;
         }
 
-        private void Awake()
+        private void Start()
         {
             Server?.Started.AddListener(ServerStarted);
             Client?.Started.AddListener(ClientStarted);
             tickRunner.onTick += Tickrunner_onTick;
+            if (_simulation == null)
+                _simulation = new DefaultPredictionSimulation(physicsMode, gameObject.scene);
         }
 
         public void ServerStarted()
         {
-            // todo maybe use Physics.defaultPhysicsScene for non-local physics
-
-            PhysicsScene physics = gameObject.scene.GetPhysicsScene();
             // just pass in players collection, later this could be changed for match based stuff where you just pass in players for a match
             IReadOnlyCollection<INetworkPlayer> players = Server.Players;
-            serverManager = new ServerManager(players, physics, tickRunner, Server.World);
+            serverManager = new ServerManager(players, _simulation, tickRunner, Server.World);
         }
 
         public void ClientStarted()
         {
             if (Server != null && Server.Active) throw new NotSupportedException("Host mode not supported");
-            PhysicsScene physics = gameObject.scene.GetPhysicsScene();
-            clientManager = new ClientManager(physics, tickRunner, Client.World, Client.MessageHandler);
+            clientManager = new ClientManager(_simulation, tickRunner, Client.World, Client.MessageHandler);
+            clientManager.ClientDelay = clientDelay;
         }
 
         private void Tickrunner_onTick(int tick)

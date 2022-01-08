@@ -11,7 +11,6 @@ using System;
 using Mirage;
 using Mirage.Serialization;
 
-
 namespace JamesFrowen.CSP
 {
     public abstract class PredictionBehaviour<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState

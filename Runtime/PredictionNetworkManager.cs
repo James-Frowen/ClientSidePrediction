@@ -56,6 +56,7 @@ namespace JamesFrowen.CSP
             manager.Client = client;
             manager.Server = server;
             manager.tickRunner = (server ?? (MonoBehaviour)client).GetComponent<TickRunner>();
+            manager.physicsMode = SimuationMode.Local3D;
             SceneManager.MoveGameObjectToScene(go, scene);
             go.SetActive(true);
             return manager;

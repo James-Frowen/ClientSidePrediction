@@ -17,6 +17,10 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
+    public interface IPredictionSimulation
+    {
+        void Simulate(float fixedDelta);
+    }
     public interface IPredictionTime
     {
         float FixedDeltaTime { get; }

@@ -8,12 +8,7 @@
  *******************************************************/
 
 using System;
-using System.Collections.Generic;
 using Mirage;
-using Mirage.Logging;
-using Mirage.Serialization;
-using Mirage.SocketLayer;
-using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
@@ -22,5 +17,13 @@ namespace JamesFrowen.CSP
     {
         public int tick;
         public ArraySegment<byte> state;
+    }
+
+    public enum SimuationMode
+    {
+        Physics3D,
+        Physics2D,
+        Local3D,
+        Local2D,
     }
 }

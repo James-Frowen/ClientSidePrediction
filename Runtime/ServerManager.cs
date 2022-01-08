@@ -22,15 +22,16 @@ namespace JamesFrowen.CSP
     internal class ServerManager
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerManager");
-        private readonly IEnumerable<INetworkPlayer> players;
-        private readonly PhysicsScene physics;
-        private readonly IPredictionTime time;
-        private readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
 
-        public ServerManager(IEnumerable<INetworkPlayer> players, PhysicsScene physics, IPredictionTime time, NetworkWorld world)
+        readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
+        readonly IEnumerable<INetworkPlayer> players;
+        readonly IPredictionSimulation simulation;
+        readonly IPredictionTime time;
+
+        public ServerManager(IEnumerable<INetworkPlayer> players, IPredictionSimulation simulation, IPredictionTime time, NetworkWorld world)
         {
             this.players = players;
-            this.physics = physics;
+            this.simulation = simulation;
             this.time = time;
 
             world.onSpawn += OnSpawn;
@@ -64,7 +65,7 @@ namespace JamesFrowen.CSP
                 behaviour.ServerController.Tick(tick);
             }
 
-            physics.Simulate(time.FixedDeltaTime);
+            simulation.Simulate(time.FixedDeltaTime);
 
             var msg = new WorldState() { tick = tick };
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())

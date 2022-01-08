@@ -24,11 +24,12 @@ namespace JamesFrowen.CSP
     internal class ClientManager
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientManager");
-        private readonly PhysicsScene physics;
-        private readonly IPredictionTime time;
-        readonly NetworkTime networkTime;
 
-        private readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
+        readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
+
+        readonly IPredictionSimulation simulation;
+        readonly IPredictionTime time;
+        readonly NetworkTime networkTime;
 
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
@@ -36,9 +37,9 @@ namespace JamesFrowen.CSP
 
         public int ClientDelay = 2;
 
-        public ClientManager(PhysicsScene physics, IPredictionTime time, NetworkWorld world, MessageHandler messageHandler)
+        public ClientManager(IPredictionSimulation simulation, IPredictionTime time, NetworkWorld world, MessageHandler messageHandler)
         {
-            this.physics = physics;
+            this.simulation = simulation;
             this.time = time;
             networkTime = world.Time;
 
@@ -107,7 +108,7 @@ namespace JamesFrowen.CSP
 
                 foreach (IPredictionBehaviour behaviour in behaviours.Values)
                     behaviour.ClientController.Simulate(tick);
-                physics.Simulate(time.FixedDeltaTime);
+                simulation.Simulate(time.FixedDeltaTime);
             }
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
@@ -149,7 +150,7 @@ namespace JamesFrowen.CSP
                     //apply 
                     behaviour.ClientController.Simulate(lastSimTick);
                 }
-                physics.Simulate(time.FixedDeltaTime);
+                simulation.Simulate(time.FixedDeltaTime);
             }
         }
         private float getClientTick()
