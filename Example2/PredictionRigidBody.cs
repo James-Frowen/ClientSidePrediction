@@ -19,6 +19,7 @@ namespace JamesFrowen.CSP.Example2
     {
         static readonly ILogger logger = LogFactory.GetLogger<PredictionExample2>();
 
+        public float ResimulateLerp = 0.1f;
         private Rigidbody body;
 
         private void Awake()
@@ -38,13 +39,14 @@ namespace JamesFrowen.CSP.Example2
             body.angularVelocity = state.angularVelocity;
         }
 
-        public override void ApplyStateLerp(ObjectState a, ObjectState b, float t)
+        public override void ApplyStateLerp(ObjectState before, ObjectState after)
         {
+            float t = ResimulateLerp;
             ObjectState state = default;
-            state.position = Vector3.Lerp(a.position, b.position, t);
-            state.rotation = Quaternion.Slerp(a.rotation, b.rotation, t);
-            state.velocity = Vector3.Lerp(a.velocity, b.velocity, t);
-            state.angularVelocity = Vector3.Lerp(a.angularVelocity, b.angularVelocity, t);
+            state.position = Vector3.Lerp(before.position, after.position, t);
+            state.rotation = Quaternion.Slerp(before.rotation, after.rotation, t);
+            state.velocity = Vector3.Lerp(before.velocity, after.velocity, t);
+            state.angularVelocity = Vector3.Lerp(before.angularVelocity, after.angularVelocity, t);
             ApplyState(state);
         }
 
