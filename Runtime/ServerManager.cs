@@ -124,7 +124,15 @@ namespace JamesFrowen.CSP
             // if lastTick is before last sim, then it is late and we can't use
             if (tick < lastSim)
             {
-                if (logger.WarnEnabled()) logger.LogWarning($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
+                // log at start, but warn after
+                if (lastReceived == NEVER_RECEIVED)
+                {
+                    if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
+                }
+                else
+                {
+                    if (logger.WarnEnabled()) logger.LogWarning($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
+                }
                 return;
             }
             else
