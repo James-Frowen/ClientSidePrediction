@@ -52,11 +52,12 @@ namespace JamesFrowen.CSP
 
         private void Start()
         {
-            Server?.Started.AddListener(ServerStarted);
-            Client?.Started.AddListener(ClientStarted);
-            tickRunner.onTick += Tickrunner_onTick;
             if (_simulation == null)
                 _simulation = new DefaultPredictionSimulation(physicsMode, gameObject.scene);
+
+            tickRunner.onTick += Tickrunner_onTick;
+            Server?.Started.AddListener(ServerStarted);
+            Client?.Started.AddListener(ClientStarted);
         }
 
         public void ServerStarted()
