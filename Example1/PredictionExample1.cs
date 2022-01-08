@@ -21,11 +21,9 @@ namespace JamesFrowen.CSP.Example1
 
         private Rigidbody body;
 
-        protected override void Awake()
+        protected void Awake()
         {
             body = GetComponent<Rigidbody>();
-
-            base.Awake();
         }
 
         public override void NetworkFixedUpdate(float fixedDelta)
@@ -53,6 +51,8 @@ namespace JamesFrowen.CSP.Example1
         {
             return new ObjectState(body.position, body.velocity);
         }
+
+        public override bool HasInput => true;
 
         public override void ApplyInput(InputState input, InputState previous)
         {
@@ -86,7 +86,7 @@ namespace JamesFrowen.CSP.Example1
         {
             server.MessageHandler.RegisterHandler<InputMessage>(x => handler.Invoke(x.tick, x.inputs));
         }
-        protected override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
+        public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
         {
             var msg = new InputMessage
             {
@@ -94,15 +94,6 @@ namespace JamesFrowen.CSP.Example1
                 inputs = inputs,
             };
             MessagePacker.Pack(msg, writer);
-        }
-        public override void SendState(int tick, ObjectState state)
-        {
-            SendState_RPC(tick, state);
-        }
-        [ClientRpc(channel = Channel.Unreliable)]
-        private void SendState_RPC(int tick, ObjectState state)
-        {
-            SendState_Receive(tick, state);
         }
         #endregion
 

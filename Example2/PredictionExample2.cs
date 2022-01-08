@@ -24,20 +24,12 @@ namespace JamesFrowen.CSP.Example2
 
         private Rigidbody body;
 
-        protected override void Awake()
+        protected void Awake()
         {
             body = GetComponent<Rigidbody>();
-
-            base.Awake();
         }
 
-        public override void NetworkFixedUpdate(float fixedDelta)
-        {
-            // stronger gravity when moving down
-            float gravity = body.velocity.y < 0 ? 3 : 1;
-            body.AddForce(gravity * Physics.gravity, ForceMode.Acceleration);
-            body.velocity += (gravity * Physics.gravity) * fixedDelta;
-        }
+        public override void NetworkFixedUpdate(float fixedDelta) { }
 
         public override void ApplyState(ObjectState state)
         {
@@ -61,6 +53,7 @@ namespace JamesFrowen.CSP.Example2
             return new ObjectState(body);
         }
 
+        public override bool HasInput => true;
         public override void ApplyInput(InputState input, InputState previous)
         {
             // normalised so that speed isn't faster if moving diagonal
@@ -89,7 +82,7 @@ namespace JamesFrowen.CSP.Example2
         {
             server.MessageHandler.RegisterHandler<InputMessage>(x => handler.Invoke(x.tick, x.inputs));
         }
-        protected override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
+        public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
         {
             var msg = new InputMessage
             {
@@ -97,15 +90,6 @@ namespace JamesFrowen.CSP.Example2
                 inputs = inputs,
             };
             MessagePacker.Pack(msg, writer);
-        }
-        public override void SendState(int tick, ObjectState state)
-        {
-            SendState_RPC(tick, state);
-        }
-        [ClientRpc(channel = Channel.Unreliable)]
-        private void SendState_RPC(int tick, ObjectState state)
-        {
-            SendState_Receive(tick, state);
         }
         #endregion
 
@@ -170,12 +154,14 @@ namespace JamesFrowen.CSP.Example2
         #endregion
     }
 
+    [NetworkMessage]
     public struct InputMessage
     {
         public int tick;
         public InputState[] inputs;
     }
 
+    [NetworkMessage]
     public struct InputState : IInputState
     {
         public bool Valid => _valid;
@@ -193,6 +179,7 @@ namespace JamesFrowen.CSP.Example2
         }
     }
 
+    [NetworkMessage]
     public struct ObjectState
     {
         public bool Valid;

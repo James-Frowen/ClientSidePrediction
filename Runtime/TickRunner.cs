@@ -5,12 +5,13 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
-    public class TickRunner : MonoBehaviour
+    public class TickRunner : MonoBehaviour, IPredictionTime
     {
         static readonly ILogger logger = LogFactory.GetLogger<TickRunner>();
 
         public int TickRate = 50;
         public float TimeScale = 1f;
+        public bool ShowDebug = false;
 
         public float TickInterval => 1f / TickRate;
         double tickTimer;
@@ -19,6 +20,7 @@ namespace JamesFrowen.CSP
 
         Stopwatch stopwatch;
 
+        float IPredictionTime.FixedDeltaTime => TickInterval;
 
         public delegate void OnTick(int tick);
         public event OnTick onTick;
@@ -37,6 +39,8 @@ namespace JamesFrowen.CSP
         float rate = 1;
         private void OnGUI()
         {
+            if (!ShowDebug)
+                return;
             slowMode = GUILayout.Toggle(slowMode, GUIContent.none);
 
             clientDelay = int.Parse(GUILayout.TextField(clientDelay.ToString()));

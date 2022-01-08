@@ -315,9 +315,11 @@ MonoBehaviour:
   ClientObjectManager: {fileID: 1143117124}
   prefab: {fileID: 5961735504659903513, guid: a5f51595f7dcb2245bf2b0d4f354fea3, type: 3}
   scene: Assets/ClientSidePrediction/Example2/PredictionScene2.unity
-  ShowServer: 0
+  ShowServer: 1
   ShowClient: 1
   ShowNoNetwork: 0
+  ServerColor: {r: 1, g: 0, b: 0, a: 0.5019608}
+  ClientColor: {r: 0, g: 1, b: 0, a: 1}
 --- !u!114 &1143117127
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -444,7 +446,7 @@ MonoBehaviour:
     LatencySinFrequency: 2
     JitterSinAmplitude: 0.005
     JitterSinFrequency: 40
-  guiEnabled: 1
+  guiEnabled: 0
   guiOffset:
     serializedVersion: 2
     x: 0
