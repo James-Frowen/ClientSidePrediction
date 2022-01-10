@@ -1,0 +1,259 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5412398232784849618
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1588679929252138528}
+  - component: {fileID: 5977352767370220410}
+  - component: {fileID: 6505989274053612385}
+  - component: {fileID: 314493797545319043}
+  - component: {fileID: 4725075944820988346}
+  - component: {fileID: 197559058440896755}
+  - component: {fileID: 7781769858875061049}
+  - component: {fileID: 7975935548180329058}
+  - component: {fileID: 8387950250477569729}
+  - component: {fileID: 6914425971510034945}
+  - component: {fileID: 5196339899459478529}
+  m_Layer: 0
+  m_Name: NetworkManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1588679929252138528
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5977352767370220410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5f5ec068f5604c32b160bc49ee97b75, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnablePeerMetrics: 0
+  MetricsSize: 10
+  MaxConnections: 4
+  DisconnectOnException: 1
+  Listening: 1
+  SocketFactory: {fileID: 5196339899459478529}
+  authenticator: {fileID: 0}
+  _started:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _connected:
+    m_PersistentCalls:
+      m_Calls: []
+  _authenticated:
+    m_PersistentCalls:
+      m_Calls: []
+  _disconnected:
+    m_PersistentCalls:
+      m_Calls: []
+  _stopped:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _onStartHost:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _onStopHost:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+--- !u!114 &6505989274053612385
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abe6be14204d94224a3e7cd99dd2ea73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnablePeerMetrics: 0
+  MetricsSize: 10
+  SocketFactory: {fileID: 5196339899459478529}
+  DisconnectOnException: 1
+  authenticator: {fileID: 0}
+  _started:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _connected:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _authenticated:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+  _disconnected:
+    _event:
+      m_PersistentCalls:
+        m_Calls: []
+--- !u!114 &314493797545319043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aab4c8111b7c411b9b92cf3dbc5bd4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Server: {fileID: 5977352767370220410}
+  Client: {fileID: 6505989274053612385}
+  NetworkSceneManager: {fileID: 0}
+  ServerObjectManager: {fileID: 4725075944820988346}
+  ClientObjectManager: {fileID: 197559058440896755}
+--- !u!114 &4725075944820988346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b750203ddb2d9f84abd799a5c2c32cb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Server: {fileID: 5977352767370220410}
+  NetworkSceneManager: {fileID: 0}
+--- !u!114 &197559058440896755
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2cbc85c1c2f1c249bbe95ae110bbcde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Client: {fileID: 6505989274053612385}
+  NetworkSceneManager: {fileID: 0}
+  spawnPrefabs: []
+--- !u!114 &7781769858875061049
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7aaac73a16c040fd871cb977b5c557b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Client: {fileID: 6505989274053612385}
+  Server: {fileID: 5977352767370220410}
+  SceneManager: {fileID: 0}
+  ClientObjectManager: {fileID: 197559058440896755}
+  ServerObjectManager: {fileID: 4725075944820988346}
+  PlayerPrefab: {fileID: 5077084983530799636, guid: cd1c057ff98e8264cbb2d37d4deeb3b9,
+    type: 3}
+  AutoSpawn: 1
+  startPositionIndex: 0
+  startPositions: []
+  playerSpawnMethod: 0
+--- !u!114 &7975935548180329058
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9f46b2d67d7a054d8c13075473bd4a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Address: localhost
+  Port: 7777
+  SocketLib: 0
+  BufferSize: 262144
+--- !u!114 &8387950250477569729
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac6e8eccf4b6f4dc7b24c276ef47fde8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  settings: {fileID: 11400000, guid: a32efd20b21c8f84ea7d413961eb7766, type: 2}
+--- !u!114 &6914425971510034945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7694566fefb01c44936715e07c4d0c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  TickRate: 50
+--- !u!114 &5196339899459478529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5412398232784849618}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b99f72a54607044b8993d3f9b82976, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inner: {fileID: 7975935548180329058}
+  settings:
+    DropChance: 0.02
+    DropSinFrequency: 0.5
+    Latency: 0.1
+    LatencySinAmplitude: 0.04
+    LatencySinFrequency: 2
+    JitterSinAmplitude: 0.005
+    JitterSinFrequency: 40
+  guiEnabled: 0
+  guiOffset:
+    serializedVersion: 2
+    x: 0
+    y: 140
+    width: 400
+    height: 240
+  guiColor: {r: 0, g: 0, b: 0, a: 0.6}
