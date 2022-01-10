@@ -39,7 +39,7 @@ namespace JamesFrowen.CSP.Example2
             body.angularVelocity = state.angularVelocity;
         }
 
-        public override void ApplyStateLerp(ObjectState before, ObjectState after)
+        public override void ResimulationTransition(ObjectState before, ObjectState after)
         {
             float t = ResimulateLerp;
             ObjectState state = default;

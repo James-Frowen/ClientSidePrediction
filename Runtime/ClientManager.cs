@@ -231,7 +231,7 @@ namespace JamesFrowen.CSP
         void IClientController.AfterResimulate()
         {
             TState next = behaviour.GatherState();
-            behaviour.ApplyStateLerp(beforeResimulateState, next);
+            behaviour.ResimulationTransition(beforeResimulateState, next);
             beforeResimulateState = default;
         }
 

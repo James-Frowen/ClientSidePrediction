@@ -41,7 +41,7 @@ namespace JamesFrowen.CSP.Example1
             body.rotation = Quaternion.identity;
             body.angularVelocity = Vector3.zero;
         }
-        public override void ApplyStateLerp(ObjectState current, ObjectState next)
+        public override void ResimulationTransition(ObjectState current, ObjectState next)
         {
             // no smoothing
         }

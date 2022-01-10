@@ -334,6 +334,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   TickRate: 50
   TimeScale: 1
+  ShowDebug: 0
 --- !u!114 &1143117128
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -439,10 +440,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   inner: {fileID: 1143117123}
   settings:
-    DropChance: 0
+    DropChance: 0.02
     DropSinFrequency: 0.5
     Latency: 0.1
-    LatencySinAmplitude: 0.03
+    LatencySinAmplitude: 0.04
     LatencySinFrequency: 2
     JitterSinAmplitude: 0.005
     JitterSinFrequency: 40

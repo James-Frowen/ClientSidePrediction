@@ -70,8 +70,8 @@ namespace JamesFrowen.CSP
         /// <para>Call <see cref="ApplyState"/> using to set new position or Leave empty function for no smoothing</para>
         /// </summary>
         /// <param name="before">state before resimulation</param>
-        /// <param name="after">state before resimulation</param>
-        public abstract void ApplyStateLerp(TState before, TState after);
+        /// <param name="after">state after resimulation</param>
+        public abstract void ResimulationTransition(TState before, TState after);
 
         // todo generate by weaver
         /// <summary>todo generate by weaver, Copy code from examples for now</summary>
