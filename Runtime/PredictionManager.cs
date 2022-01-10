@@ -21,7 +21,7 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.PredictionManager");
 
-        public SimuationMode physicsMode;
+        public SimulationMode physicsMode;
         public NetworkServer Server;
         public NetworkClient Client;
         public TickRunner tickRunner;

@@ -19,7 +19,7 @@ namespace JamesFrowen.CSP
         public ArraySegment<byte> state;
     }
 
-    public enum SimuationMode
+    public enum SimulationMode
     {
         Physics3D,
         Physics2D,

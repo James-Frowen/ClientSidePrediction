@@ -16,46 +16,46 @@ namespace JamesFrowen.CSP.Simulations
 {
     public class DefaultPredictionSimulation : IPredictionSimulation
     {
-        readonly SimuationMode mode;
+        readonly SimulationMode mode;
         readonly PhysicsScene local3d;
         readonly PhysicsScene2D local2d;
 
-        public DefaultPredictionSimulation(SimuationMode mode, Scene scene)
+        public DefaultPredictionSimulation(SimulationMode mode, Scene scene)
         {
             this.mode = mode;
             // todo maybe use Physics.defaultPhysicsScene for non-local physics
             switch (mode)
             {
-                case SimuationMode.Physics3D:
+                case SimulationMode.Physics3D:
                     Physics.autoSimulation = false;
                     break;
-                case SimuationMode.Physics2D:
+                case SimulationMode.Physics2D:
                     Physics2D.autoSimulation = false;
                     break;
-                case SimuationMode.Local3D:
+                case SimulationMode.Local3D:
                     local3d = scene.GetPhysicsScene();
                     break;
-                case SimuationMode.Local2D:
+                case SimulationMode.Local2D:
                     local2d = scene.GetPhysicsScene2D();
                     break;
                 default:
                     throw new InvalidEnumArgumentException();
             }
         }
-        public DefaultPredictionSimulation(SimuationMode mode)
+        public DefaultPredictionSimulation(SimulationMode mode)
         {
             this.mode = mode;
             // todo maybe use Physics.defaultPhysicsScene for non-local physics
             switch (mode)
             {
-                case SimuationMode.Physics3D:
+                case SimulationMode.Physics3D:
                     Physics.autoSimulation = false;
                     break;
-                case SimuationMode.Physics2D:
+                case SimulationMode.Physics2D:
                     Physics2D.autoSimulation = false;
                     break;
-                case SimuationMode.Local3D:
-                case SimuationMode.Local2D:
+                case SimulationMode.Local3D:
+                case SimulationMode.Local2D:
                     throw new ArgumentException("Scene should be passed in when using local physics", nameof(mode));
                 default:
                     throw new InvalidEnumArgumentException();
@@ -66,16 +66,16 @@ namespace JamesFrowen.CSP.Simulations
         {
             switch (mode)
             {
-                case SimuationMode.Physics3D:
+                case SimulationMode.Physics3D:
                     Physics.Simulate(fixedDelta);
                     break;
-                case SimuationMode.Physics2D:
+                case SimulationMode.Physics2D:
                     Physics2D.Simulate(fixedDelta);
                     break;
-                case SimuationMode.Local3D:
+                case SimulationMode.Local3D:
                     local3d.Simulate(fixedDelta);
                     break;
-                case SimuationMode.Local2D:
+                case SimulationMode.Local2D:
                     local2d.Simulate(fixedDelta);
                     break;
             }
