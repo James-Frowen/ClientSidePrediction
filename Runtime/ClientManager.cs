@@ -40,6 +40,7 @@ namespace JamesFrowen.CSP
             this.simulation = simulation;
             time = clientTickRunner;
             this.clientTickRunner = clientTickRunner;
+            this.clientTickRunner.OnTickSkip += OnTickSkip;
 
             networkTime = world.Time;
 
@@ -53,6 +54,13 @@ namespace JamesFrowen.CSP
                 OnSpawn(item);
             }
         }
+
+        private void OnTickSkip()
+        {
+            foreach (IPredictionBehaviour behaviour in behaviours.Values)
+                behaviour.ClientController.OnTickSkip();
+        }
+
         public void OnSpawn(NetworkIdentity identity)
         {
             if (identity.TryGetComponent(out IPredictionBehaviour behaviour))
@@ -69,6 +77,7 @@ namespace JamesFrowen.CSP
         void RecieveWorldState(INetworkPlayer _, WorldState state)
         {
             ReceiveState(state.tick, state.state);
+            clientTickRunner.OnMessage(state.tick);
         }
         void ReceiveState(int tick, ArraySegment<byte> statePayload)
         {
@@ -161,13 +170,18 @@ namespace JamesFrowen.CSP
         int lastReceivedTick = Helper.NO_VALUE;
         TState lastReceivedState;
 
-        int lastSimTick;
-
         private int lastInputTick;
         Dictionary<int, TInput> pendingInputs = new Dictionary<int, TInput>();
         private TState beforeResimulateState;
 
-        void IClientController.ReceiveState(int tick, NetworkReader reader)
+        public ClientController(PredictionBehaviour<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
+        {
+            this.behaviour = behaviour;
+            _inputBuffer = new TInput[bufferSize];
+            this.time = time;
+        }
+
+        public void ReceiveState(int tick, NetworkReader reader)
         {
             TState state = reader.Read<TState>();
             if (lastReceivedTick > tick)
@@ -181,14 +195,7 @@ namespace JamesFrowen.CSP
             lastReceivedState = state;
         }
 
-        public ClientController(PredictionBehaviour<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
-        {
-            this.behaviour = behaviour;
-            _inputBuffer = new TInput[bufferSize];
-            this.time = time;
-        }
-
-        void IClientController.BeforeResimulate()
+        public void BeforeResimulate()
         {
             // if receivedTick = 100
             // then we want to Simulate (100->101)
@@ -202,7 +209,7 @@ namespace JamesFrowen.CSP
             if (behaviour is IDebugPredictionBehaviour debug)
                 debug.CreateAfterImage(lastReceivedState);
         }
-        void IClientController.AfterResimulate()
+        public void AfterResimulate()
         {
             TState next = behaviour.GatherState();
             behaviour.ResimulationTransition(beforeResimulateState, next);
@@ -222,13 +229,13 @@ namespace JamesFrowen.CSP
             behaviour.NetworkFixedUpdate(time.FixedDeltaTime);
         }
 
-        void IClientController.InputTick(int tick)
+        public void InputTick(int tick)
         {
             if (!behaviour.HasInput)
                 return;
 
-            if (lastInputTick != tick - 1)
-                throw new Exception("Inputs ticks called out of order");
+            if (lastInputTick != 0 && lastInputTick != tick - 1)
+                if (logger.WarnEnabled()) logger.LogWarning($"Inputs ticks called out of order. Last:{lastInputTick} tick:{tick}");
             lastInputTick = tick;
 
             TInput thisTickInput = behaviour.GetInput();
@@ -266,6 +273,12 @@ namespace JamesFrowen.CSP
                     }
                 };
             }
+        }
+
+        public void OnTickSkip()
+        {
+            // clear inputs, start a fresh
+            pendingInputs.Clear();
         }
     }
 }

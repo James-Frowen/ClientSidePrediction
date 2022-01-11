@@ -20,7 +20,7 @@ namespace JamesFrowen.CSP
         /// Used by client to keep up with server
         /// <para>always 1 on server</para>
         /// </summary>
-        public float TimeScale { get; protected set; }
+        public float TimeScale { get; protected set; } = 1;
 
         readonly Stopwatch stopwatch;
         double tickTimer;
@@ -71,6 +71,7 @@ namespace JamesFrowen.CSP
                 _tick++;
 
                 // only invoke is tick is later, see lastInvokedTick
+                // todo what if we jump back, do we not need to resimulate?
                 if (_tick > lastInvokedTick)
                 {
                     onTick?.Invoke(_tick);
@@ -108,6 +109,11 @@ namespace JamesFrowen.CSP
         int latestServerTick;
 
         public float ClientDelaySeconds => ClientDelay * FixedDeltaTime;
+
+        /// <summary>
+        /// Invoked at start AND if client gets too get away from server
+        /// </summary>
+        public event Action OnTickSkip;
 
         /// <param name="diffThreshold">how far off client time can be before changing its speed, Good value is half SyncInterval</param>
         /// <param name="timeScaleModifier">how much to speed up/slow down by is behind/ahead</param>
@@ -169,7 +175,7 @@ namespace JamesFrowen.CSP
             // todo will skipping behind cause negative effects? we dont want Tick event to be invoked for a tick twice
             if (Math.Abs(diff) > skipAheadThreshold)
             {
-                logger.LogWarning($"Client fell behind, skipping ahead. server:{serverTick:0.00} client:{_tick} diff:{diff:0.00}");
+                logger.LogWarning($"Client fell behind, skipping ahead. server:{serverTick:0.00} serverGuess:{serverGuess} diff:{diff:0.00}");
                 InitNew(serverTick);
                 return;
             }
@@ -190,6 +196,8 @@ namespace JamesFrowen.CSP
             TimeScale = normalScale;
             diffAvg.Reset();
             intialized = true;
+            // todo do we need to invoke this at start as well as skip?
+            OnTickSkip?.Invoke();
         }
 
         private void AdjustClientTimeScale(float diff)

@@ -28,6 +28,7 @@ namespace JamesFrowen.CSP
         void ReceiveState(int tick, NetworkReader reader);
         void Simulate(int tick);
         void InputTick(int clientLastSim);
+        void OnTickSkip();
     }
     public interface IServerController
     {
