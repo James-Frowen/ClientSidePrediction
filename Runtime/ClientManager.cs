@@ -29,18 +29,18 @@ namespace JamesFrowen.CSP
 
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
+        readonly ClientTickRunner clientTickRunner;
         readonly NetworkTime networkTime;
 
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
-        int lastSimTick;
 
-        public int ClientDelay = 2;
-
-        public ClientManager(IPredictionSimulation simulation, IPredictionTime time, NetworkWorld world, MessageHandler messageHandler)
+        public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, MessageHandler messageHandler)
         {
             this.simulation = simulation;
-            this.time = time;
+            time = clientTickRunner;
+            this.clientTickRunner = clientTickRunner;
+
             networkTime = world.Time;
 
             messageHandler.RegisterHandler<WorldState>(RecieveWorldState);
@@ -92,79 +92,53 @@ namespace JamesFrowen.CSP
             }
         }
 
-        public void Resimulate(int receivedTick)
+        void Resimulate(int from, int to)
         {
-            logger.Log($"Resimulate from {receivedTick} to {lastSimTick}");
+            logger.Log($"Resimulate from {from} to {to}");
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.BeforeResimulate();
 
-            for (int tick = receivedTick; tick < lastSimTick; tick++)
+            // step forward Applying inputs
+            // - include lastSimTick tick, because resim will be called before next tick
+            for (int tick = from; tick <= to; tick++)
             {
-                // set forward Applying inputs
-                // - exclude current tick, we will run this later
-                if (tick - lastReceivedTick > Helper.BufferSize)
+                if (tick - from > Helper.BufferSize)
                     throw new OverflowException("Inputs overflowed buffer");
 
-                foreach (IPredictionBehaviour behaviour in behaviours.Values)
-                    behaviour.ClientController.Simulate(tick);
-                simulation.Simulate(time.FixedDeltaTime);
+                Simulate(tick);
             }
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.AfterResimulate();
         }
 
-        // todo add this tick delay stuff to tick runner rather than inside tick
-        // maybe update tick/inputs at same interval as server
-        // use tick rate stuff from snapshot interpolation
+        void Simulate(int tick)
+        {
+            foreach (IPredictionBehaviour behaviour in behaviours.Values)
+                behaviour.ClientController.Simulate(tick);
+            simulation.Simulate(time.FixedDeltaTime);
+        }
 
-        // then use real time to send inputs to server??
-
-        // maybe look at https://github.com/Unity-Technologies/FPSSample/blob/master/Assets/Scripts/Game/Main/ClientGameLoop.cs
         internal void Tick(int tick)
         {
-            // delay from latency to make sure inputs reach server in time
-            float tickDelay = getClientTick();
+            // set lastSim to +1, so if we receive new snapshot, then we sim up to 106 again
+            // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
+            // todo: what happens if we do 2 at once, is that really a problem?
 
-            int clientTick = tick + (int)Math.Floor(tickDelay);
-            while (clientTick > lastSimTick)
+            if (unappliedTick)
             {
-                // set lastSim to +1, so if we receive new snapshot, then we sim up to 106 again
-                // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
-                // todo: what happens if we do 2 at once, is that really a problem?
-                lastSimTick++;
-
-                if (logger.LogEnabled()) logger.Log($"Client tick {lastSimTick}, Client Delay {tickDelay:0.0}");
-
-                if (unappliedTick)
-                {
-                    Resimulate(lastReceivedTick);
-                    unappliedTick = false;
-                }
-
-                foreach (IPredictionBehaviour behaviour in behaviours.Values)
-                {
-                    // get and send inputs
-                    behaviour.ClientController.InputTick(lastSimTick);
-                    //apply 
-                    behaviour.ClientController.Simulate(lastSimTick);
-                }
-                simulation.Simulate(time.FixedDeltaTime);
+                // sim up to N-1, we do N below when we get new inputs
+                Resimulate(lastReceivedTick, tick - 1);
+                unappliedTick = false;
             }
-        }
-        private float getClientTick()
-        {
-            // +2 to make sure inputs always get to server before simulation
-            return ClientDelay + calculateTickDifference();
-        }
-        private float calculateTickDifference()
-        {
-            double oneWayTrip = networkTime.Rtt / 2;
-            float tickTime = time.FixedDeltaTime;
 
-            double tickDifference = oneWayTrip / tickTime;
-            return (float)tickDifference;
+            foreach (IPredictionBehaviour behaviour in behaviours.Values)
+            {
+                // get and send inputs
+                behaviour.ClientController.InputTick(tick);
+            }
+            Simulate(tick);
         }
     }
 

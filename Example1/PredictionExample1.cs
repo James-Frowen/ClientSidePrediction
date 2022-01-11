@@ -99,12 +99,12 @@ namespace JamesFrowen.CSP.Example1
 
         #region IDebugPredictionBehaviour
         PredictionExample1 _copy;
-        TickRunner _DebugRunner;
+        float _FixedDeltaTime;
         IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample1)value; }
 
-        void IDebugPredictionBehaviour.Setup(TickRunner runner)
+        void IDebugPredictionBehaviour.Setup(float fixedDeltaTime)
         {
-            _DebugRunner = runner;
+            _FixedDeltaTime = fixedDeltaTime;
         }
 
         InputState noNetworkPrevious;
@@ -112,13 +112,14 @@ namespace JamesFrowen.CSP.Example1
         {
             var input = (InputState)_input;
             ApplyInput(input, noNetworkPrevious);
-            NetworkFixedUpdate(_DebugRunner.TickInterval);
-            gameObject.scene.GetPhysicsScene().Simulate(_DebugRunner.TickInterval);
+            NetworkFixedUpdate(_FixedDeltaTime);
+            gameObject.scene.GetPhysicsScene().Simulate(_FixedDeltaTime);
             noNetworkPrevious = input;
         }
         void IDebugPredictionBehaviour.CreateAfterImage(object state) { }
         #endregion
     }
+
     public struct InputMessage
     {
         public int tick;

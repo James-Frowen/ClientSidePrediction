@@ -5,7 +5,10 @@ namespace JamesFrowen.CSP
 {
     public class TickDebugger : NetworkBehaviour
     {
+        public int ClientDelay;
+
         TickRunner tickRunner;
+        ClientTickRunner ClientRunner => (ClientTickRunner)tickRunner;
 
         int clientTick;
         int serverTick;
@@ -19,7 +22,7 @@ namespace JamesFrowen.CSP
         }
         void OnStartServer()
         {
-            tickRunner = ServerObjectManager.GetComponent<TickRunner>();
+            tickRunner = new TickRunner();
             tickRunner.onTick += ServerTick;
         }
 
@@ -39,9 +42,11 @@ namespace JamesFrowen.CSP
 
         void OnStartClient()
         {
-            tickRunner = ClientObjectManager.GetComponent<TickRunner>();
-            tickRunner.InitTime(this);
-            tickRunner.onClientTick += ClientTick;
+            tickRunner = new ClientTickRunner(Client.World.Time)
+            {
+                ClientDelay = ClientDelay,
+            };
+            tickRunner.onTick += ClientTick;
             NetworkTime.PingInterval = 0;
         }
 
@@ -69,17 +74,17 @@ namespace JamesFrowen.CSP
                 GUILayout.Space(20);
                 GUILayout.Label($"Diff {diff.Value:0.00}");
                 if (IsServer)
-                    GUILayout.Label($"target {tickRunner.ClientDelay:0.00}");
+                    GUILayout.Label($"target {ClientDelay:0.00}");
                 if (IsClient)
-                    GUILayout.Label($"target {tickRunner.interpolationTime.TargetDelayTicks:0.00}");
+                    GUILayout.Label($"target {ClientRunner.TargetDelayTicks:0.00}");
 
 
                 if (IsClient)
                 {
                     GUILayout.Space(20);
-                    GUILayout.Label($"scale {tickRunner.interpolationTime.TimeScale:0.00}");
+                    GUILayout.Label($"scale {ClientRunner.TimeScale:0.00}");
                     GUILayout.Label($"RTT {NetworkTime.Rtt * 1000:0}");
-                    GUILayout.Label($"Target Delay {(NetworkTime.Rtt + tickRunner.interpolationTime.ClientDelaySeconds) * 1000:0}");
+                    GUILayout.Label($"Target Delay {(NetworkTime.Rtt + ClientRunner.ClientDelaySeconds) * 1000:0}");
                 }
                 GUI.enabled = true;
             }

@@ -7,13 +7,7 @@
  * permission of James Frowen
  *******************************************************/
 
-using System;
-using System.Collections.Generic;
-using Mirage;
-using Mirage.Logging;
 using Mirage.Serialization;
-using Mirage.SocketLayer;
-using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
@@ -24,6 +18,7 @@ namespace JamesFrowen.CSP
     public interface IPredictionTime
     {
         float FixedDeltaTime { get; }
+        int Tick { get; }
     }
     public interface IClientController
     {
@@ -48,7 +43,7 @@ namespace JamesFrowen.CSP
         IDebugPredictionBehaviour Copy { get; set; }
 
         void NoNetworkApply(object input);
-        void Setup(TickRunner runner);
+        void Setup(float fixedDeltaTime);
         void CreateAfterImage(object state);
     }
     interface IPredictionBehaviour

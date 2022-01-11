@@ -6,7 +6,7 @@ using Mirage.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace JamesFrowen.CSP
+namespace JamesFrowen.CSP.Examples
 {
     public class PredictionNetworkManager : NetworkManager
     {
@@ -55,7 +55,6 @@ namespace JamesFrowen.CSP
             PredictionManager manager = go.AddComponent<PredictionManager>();
             manager.Client = client;
             manager.Server = server;
-            manager.tickRunner = (server ?? (MonoBehaviour)client).GetComponent<TickRunner>();
             manager.physicsMode = SimulationMode.Local3D;
             SceneManager.MoveGameObjectToScene(go, scene);
             go.SetActive(true);
@@ -116,7 +115,7 @@ namespace JamesFrowen.CSP
             {
                 GameObject clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, clientScene);
-                _ = CreateManager(Client, null, clientScene);
+                PredictionManager manager = CreateManager(Client, null, clientScene);
                 clone.GetComponent<Renderer>().enabled = ShowClient;
 
                 if (ShowNoNetwork)
@@ -125,7 +124,7 @@ namespace JamesFrowen.CSP
                     SceneManager.MoveGameObjectToScene(clone2, clientScene2);
                     IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
                     clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
-                    behaviour2.Setup(GetComponent<TickRunner>());
+                    behaviour2.Setup(1f / manager.TickRate);
                     clone2.GetComponent<Renderer>().material.color = Color.blue;
 
                     clone2.GetComponent<Renderer>().enabled = true;

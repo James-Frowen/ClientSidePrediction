@@ -17,19 +17,34 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
+    [Serializable]
+    public class ClientTickSettings
+    {
+        public int clientDelay = 2;
+        public float diffThreshold = 0.5f;
+        public float timeScaleModifier = 0.01f;
+        public float skipThreshold = 10f;
+        public int movingAverageCount = 30;
+    }
     public class PredictionManager : MonoBehaviour
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.PredictionManager");
 
-        public SimulationMode physicsMode;
+        [Header("References")]
         public NetworkServer Server;
         public NetworkClient Client;
-        public TickRunner tickRunner;
-        public int clientDelay = 2;
+
+        [Header("Simulation")]
+        public SimulationMode physicsMode;
+
+        [Header("Tick Settings")]
+        [SerializeField] internal float TickRate = 50;
+        [SerializeField] ClientTickSettings ClientTickSettings = new ClientTickSettings();
 
         ClientManager clientManager;
         ServerManager serverManager;
 
+        TickRunner _tickRunner;
         IPredictionSimulation _simulation;
 
         /// <summary>
@@ -44,48 +59,51 @@ namespace JamesFrowen.CSP
             _simulation = simulation;
         }
 
-        private void OnValidate()
-        {
-            if (clientManager != null)
-                clientManager.ClientDelay = clientDelay;
-        }
-
         private void Start()
         {
             if (_simulation == null)
                 _simulation = new DefaultPredictionSimulation(physicsMode, gameObject.scene);
 
-            tickRunner.onTick += Tickrunner_onTick;
             Server?.Started.AddListener(ServerStarted);
             Client?.Started.AddListener(ClientStarted);
         }
 
         public void ServerStarted()
         {
+            _tickRunner = new TickRunner()
+            {
+                TickRate = TickRate
+            };
+
             // just pass in players collection, later this could be changed for match based stuff where you just pass in players for a match
             IReadOnlyCollection<INetworkPlayer> players = Server.Players;
-            serverManager = new ServerManager(players, _simulation, tickRunner, Server.World);
+            serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
+            _tickRunner.onTick += serverManager.Tick;
         }
 
         public void ClientStarted()
         {
             if (Server != null && Server.Active) throw new NotSupportedException("Host mode not supported");
-            clientManager = new ClientManager(_simulation, tickRunner, Client.World, Client.MessageHandler);
-            clientManager.ClientDelay = clientDelay;
+
+            var clientRunner = new ClientTickRunner(Client.World.Time,
+                   diffThreshold: ClientTickSettings.diffThreshold,
+                   timeScaleModifier: ClientTickSettings.timeScaleModifier,
+                   skipThreshold: ClientTickSettings.skipThreshold,
+                   movingAverageCount: ClientTickSettings.movingAverageCount
+                   )
+            {
+                TickRate = TickRate,
+                ClientDelay = ClientTickSettings.clientDelay,
+            };
+
+            clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
+            clientRunner.onTick += clientManager.Tick;
+            _tickRunner = clientRunner;
         }
 
-        private void Tickrunner_onTick(int tick)
+        private void Update()
         {
-            // todo host mode support
-            if (Server != null && Server.Active)
-            {
-                serverManager.Tick(tick);
-            }
-
-            if (Client != null && Client.Active)
-            {
-                clientManager.Tick(tick);
-            }
+            _tickRunner?.OnUpdate();
         }
     }
 }
