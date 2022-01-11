@@ -75,7 +75,7 @@ namespace JamesFrowen.CSP
 
         // todo generate by weaver
         /// <summary>todo generate by weaver, Copy code from examples for now</summary>
-        protected abstract void RegisterInputMessage(NetworkServer server, Action<int, TInput[]> handler);
+        protected abstract void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, TInput[]> handler);
         /// <summary>todo generate by weaver, Copy code from examples for now</summary>
         public abstract void PackInputMessage(NetworkWriter writer, int tick, TInput[] inputs);
 
@@ -85,7 +85,7 @@ namespace JamesFrowen.CSP
 
             // todo why doesn't IServer have message handler
             var networkServer = ((NetworkServer)Identity.Server);
-            RegisterInputMessage(networkServer, (tick, inputs) => _server.OnReceiveInput(tick, inputs));
+            RegisterInputMessage(networkServer, (player, tick, inputs) => _server.OnReceiveInput(player, tick, inputs));
         }
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)
         {

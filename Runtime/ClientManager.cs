@@ -95,6 +95,13 @@ namespace JamesFrowen.CSP
                 while (reader.CanReadBytes(1))
                 {
                     uint netId = reader.ReadPackedUInt32();
+                    // todo fix spawning 
+                    if (!behaviours.ContainsKey(netId))
+                    {
+                        logger.LogError($"No key for {netId}, Stoping ReceiveState");
+                        return;
+                    }
+
                     IPredictionBehaviour behaviour = behaviours[netId];
                     behaviour.ClientController.ReceiveState(tick, reader);
                 }

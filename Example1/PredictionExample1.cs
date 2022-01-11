@@ -81,9 +81,9 @@ namespace JamesFrowen.CSP.Example1
         }
 
         #region Move to weaver
-        protected override void RegisterInputMessage(NetworkServer server, Action<int, InputState[]> handler)
+        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, InputState[]> handler)
         {
-            server.MessageHandler.RegisterHandler<InputMessage>(x => handler.Invoke(x.tick, x.inputs));
+            server.MessageHandler.RegisterHandler<InputMessage>((player, msg) => handler.Invoke(player, msg.tick, msg.inputs));
         }
         public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
         {

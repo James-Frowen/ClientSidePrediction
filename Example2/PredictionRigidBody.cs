@@ -58,7 +58,7 @@ namespace JamesFrowen.CSP.Example2
         public override void NetworkFixedUpdate(float fixedDelta) { }
 
         public override void PackInputMessage(NetworkWriter writer, int tick, NoInput[] inputs) { }
-        protected override void RegisterInputMessage(NetworkServer server, Action<int, NoInput[]> handler) { }
+        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, NoInput[]> handler) { }
     }
     [NetworkMessage]
     public struct NoInput : IInputState

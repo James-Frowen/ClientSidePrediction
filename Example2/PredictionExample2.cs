@@ -8,6 +8,7 @@
  *******************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Mirage;
 using Mirage.Logging;
@@ -55,7 +56,9 @@ namespace JamesFrowen.CSP.Example2
             return new ObjectState(body);
         }
 
-        public override bool HasInput => true;
+        // server always has inputs for player, but only owner client as them
+        // todo move this check to controllers
+        public override bool HasInput => HasAuthority || IsServer;
         public override void ApplyInput(InputState input, InputState previous)
         {
             // normalised so that speed isn't faster if moving diagonal
@@ -80,14 +83,21 @@ namespace JamesFrowen.CSP.Example2
         }
 
         #region Move to weaver
-        protected override void RegisterInputMessage(NetworkServer server, Action<int, InputState[]> handler)
+        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, InputState[]> handler)
         {
-            server.MessageHandler.RegisterHandler<InputMessage>(x => handler.Invoke(x.tick, x.inputs));
+            handlers.Add(NetId, handler);
+            server.MessageHandler.RegisterHandler<InputMessage>(InputMessageHandler);
+        }
+        static Dictionary<uint, Action<INetworkPlayer, int, InputState[]>> handlers = new Dictionary<uint, Action<INetworkPlayer, int, InputState[]>>();
+        static void InputMessageHandler(INetworkPlayer player, InputMessage msg)
+        {
+            handlers[msg.netId].Invoke(player, msg.tick, msg.inputs);
         }
         public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
         {
             var msg = new InputMessage
             {
+                netId = NetId,
                 tick = tick,
                 inputs = inputs,
             };
@@ -159,6 +169,7 @@ namespace JamesFrowen.CSP.Example2
     [NetworkMessage]
     public struct InputMessage
     {
+        public uint netId;
         public int tick;
         public InputState[] inputs;
     }

@@ -7,6 +7,7 @@
  * permission of James Frowen
  *******************************************************/
 
+using System;
 using System.Collections.Generic;
 using Mirage;
 using Mirage.Logging;
@@ -120,8 +121,11 @@ namespace JamesFrowen.CSP
             writer.Write(state);
         }
 
-        public void OnReceiveInput(int tick, TInput[] newInputs)
+        public void OnReceiveInput(INetworkPlayer player, int tick, TInput[] newInputs)
         {
+            if (player != behaviour.Owner)
+                throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
+
             // if lastTick is before last sim, then it is late and we can't use
             if (tick < lastSim)
             {
