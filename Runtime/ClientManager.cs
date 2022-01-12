@@ -44,7 +44,7 @@ namespace JamesFrowen.CSP
 
             networkTime = world.Time;
 
-            messageHandler.RegisterHandler<WorldState>(RecieveWorldState);
+            messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
             world.onSpawn += OnSpawn;
             world.onUnspawn += OnUnspawn;
 
@@ -74,7 +74,7 @@ namespace JamesFrowen.CSP
             behaviours.Remove(identity.NetId);
         }
 
-        void RecieveWorldState(INetworkPlayer _, WorldState state)
+        void ReceiveWorldState(INetworkPlayer _, WorldState state)
         {
             ReceiveState(state.tick, state.state);
             clientTickRunner.OnMessage(state.tick);
@@ -83,7 +83,7 @@ namespace JamesFrowen.CSP
         {
             if (lastReceivedTick > tick)
             {
-                logger.LogWarning("State out of order");
+                if (logger.LogEnabled()) logger.Log($"State out of order, Dropping state for {tick}");
                 return;
             }
 
@@ -99,7 +99,7 @@ namespace JamesFrowen.CSP
                     {
                         // todo fix spawning 
                         // this breaks if state message is received before Mirage's spawn messages
-                        logger.LogWarning($"(DEBUG ONLY) No key for {netId}, Stoping ReceiveState");
+                        logger.LogWarning($"(TODO FIX THIS) No key for {netId}, Stoping ReceiveState");
                         return;
                     }
 
