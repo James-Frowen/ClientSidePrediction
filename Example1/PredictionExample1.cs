@@ -120,12 +120,14 @@ namespace JamesFrowen.CSP.Example1
         #endregion
     }
 
+    [NetworkMessage]
     public struct InputMessage
     {
         public int tick;
         public InputState[] inputs;
     }
 
+    [NetworkMessage]
     public struct InputState : IInputState
     {
         public bool Valid => _valid;
@@ -146,6 +148,7 @@ namespace JamesFrowen.CSP.Example1
         public int Horizontal => (right ? 1 : 0) - (left ? 1 : 0);
     }
 
+    [NetworkMessage]
     public struct ObjectState
     {
         public readonly bool Valid;
