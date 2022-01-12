@@ -95,10 +95,11 @@ namespace JamesFrowen.CSP
                 while (reader.CanReadBytes(1))
                 {
                     uint netId = reader.ReadPackedUInt32();
-                    // todo fix spawning 
                     if (!behaviours.ContainsKey(netId))
                     {
-                        logger.LogError($"No key for {netId}, Stoping ReceiveState");
+                        // todo fix spawning 
+                        // this breaks if state message is received before Mirage's spawn messages
+                        logger.LogWarning($"(DEBUG ONLY) No key for {netId}, Stoping ReceiveState");
                         return;
                     }
 

@@ -136,7 +136,7 @@ namespace JamesFrowen.CSP
                 }
                 else
                 {
-                    if (logger.WarnEnabled()) logger.LogWarning($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
+                    if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
                 }
                 return;
             }
@@ -187,7 +187,6 @@ namespace JamesFrowen.CSP
             else
             {
                 if (logger.WarnEnabled()) logger.LogWarning($"No inputs for {tick}");
-                // todo use last valid input instead of just using previois
                 behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
             }
         }
