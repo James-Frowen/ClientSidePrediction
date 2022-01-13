@@ -30,7 +30,15 @@ namespace JamesFrowen.CSP.Simulations
                     Physics.autoSimulation = false;
                     break;
                 case SimulationMode.Physics2D:
+#if UNITY_2020_1_OR_NEWER
+                    // Unity 2020.1+ deprecated Physics2D.autoSimulation, using that causes a Compile Error
+                    // when building the player. So we set the simulation mode for 2D Physics to be controlled
+                    // via Script.
+                    Physics2D.simulationMode = SimulationMode2D.Script;
+#else
+                    // Stock standard disabling of 2D Physics auto simulation.
                     Physics2D.autoSimulation = false;
+#endif
                     break;
                 case SimulationMode.Local3D:
                     local3d = scene.GetPhysicsScene();
@@ -52,7 +60,13 @@ namespace JamesFrowen.CSP.Simulations
                     Physics.autoSimulation = false;
                     break;
                 case SimulationMode.Physics2D:
+#if UNITY_2020_1_OR_NEWER
+                    // Unity 2020.1+ deprecated Physics2D.autoSimulation. See previous comments above in DefaultPredictionSimulation(mode, scene)
+                    Physics2D.simulationMode = SimulationMode2D.Script;
+#else
+                    // Stock standard disabling of 2D Physics auto simulation.
                     Physics2D.autoSimulation = false;
+#endif
                     break;
                 case SimulationMode.Local3D:
                 case SimulationMode.Local2D:
