@@ -18,6 +18,19 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
+    class ClientTime : IPredictionTime
+    {
+        public ClientTime(float fixedDeltaTime)
+        {
+            FixedDeltaTime = fixedDeltaTime;
+        }
+
+        public float FixedDeltaTime { get; }
+        public int Tick { get; set; }
+
+        public float FixedTime => Tick * FixedDeltaTime;
+    }
+
     /// <summary>
     /// Controls all objects on client
     /// </summary>
@@ -30,7 +43,7 @@ namespace JamesFrowen.CSP
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
         readonly ClientTickRunner clientTickRunner;
-        readonly NetworkTime networkTime;
+        readonly ClientTime clientTime;
 
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
@@ -41,8 +54,7 @@ namespace JamesFrowen.CSP
             time = clientTickRunner;
             this.clientTickRunner = clientTickRunner;
             this.clientTickRunner.OnTickSkip += OnTickSkip;
-
-            networkTime = world.Time;
+            clientTime = new ClientTime(time.FixedDeltaTime);
 
             messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
             world.onSpawn += OnSpawn;
@@ -66,7 +78,7 @@ namespace JamesFrowen.CSP
             if (identity.TryGetComponent(out IPredictionBehaviour behaviour))
             {
                 behaviours.Add(identity.NetId, behaviour);
-                behaviour.ClientSetup(time);
+                behaviour.ClientSetup(clientTime);
             }
         }
         public void OnUnspawn(NetworkIdentity identity)
@@ -132,6 +144,7 @@ namespace JamesFrowen.CSP
 
         void Simulate(int tick)
         {
+            clientTime.Tick = tick;
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.Simulate(tick);
             simulation.Simulate(time.FixedDeltaTime);
@@ -169,7 +182,6 @@ namespace JamesFrowen.CSP
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientController");
 
         readonly PredictionBehaviour<TInput, TState> behaviour;
-        readonly IPredictionTime time;
 
         TInput[] _inputBuffer;
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
@@ -186,7 +198,6 @@ namespace JamesFrowen.CSP
         {
             this.behaviour = behaviour;
             _inputBuffer = new TInput[bufferSize];
-            this.time = time;
         }
 
         public void ReceiveState(int tick, NetworkReader reader)
@@ -228,8 +239,7 @@ namespace JamesFrowen.CSP
         /// From tick N to N+1
         /// </summary>
         /// <param name="tick"></param>
-        void IClientController.Simulate(int tick) => Simulate(tick);
-        private void Simulate(int tick)
+        void IClientController.Simulate(int tick)
         {
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);

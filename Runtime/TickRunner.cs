@@ -49,6 +49,8 @@ namespace JamesFrowen.CSP
             get => _tick;
         }
 
+        float IPredictionTime.FixedTime => Tick * FixedDeltaTime;
+
         public void OnUpdate()
         {
             double now = stopwatch.Elapsed.TotalSeconds;

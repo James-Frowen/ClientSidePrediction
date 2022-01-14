@@ -17,7 +17,25 @@ namespace JamesFrowen.CSP
     }
     public interface IPredictionTime
     {
+        /// <summary>
+        /// Fixed interval between ticks
+        /// </summary>
         float FixedDeltaTime { get; }
+
+        /// <summary>
+        /// Current time for simulation
+        /// <para>
+        /// this will rewind when doing resimulation on client
+        /// </para>
+        /// </summary>
+        float FixedTime { get; }
+
+        /// <summary>
+        /// Current tick for simulation
+        /// <para>
+        /// this will rewind when doing resimulation on client
+        /// </para>
+        /// </summary>
         int Tick { get; }
     }
     public interface IClientController
