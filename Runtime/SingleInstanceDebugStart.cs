@@ -8,7 +8,10 @@ using UnityEngine.SceneManagement;
 
 namespace JamesFrowen.CSP.Examples
 {
-    public class PredictionNetworkManager : NetworkManager
+    /// <summary>
+    /// Starts a server and client inside the game unity instance. Used by the examples to show copies of same object.
+    /// </summary>
+    public class SingleInstanceDebugStart : NetworkManager
     {
         static PredictionNetworkManager instance;
 
