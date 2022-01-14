@@ -13,7 +13,7 @@ namespace JamesFrowen.CSP.Examples
     /// </summary>
     public class SingleInstanceDebugStart : NetworkManager
     {
-        static PredictionNetworkManager instance;
+        static SingleInstanceDebugStart instance;
 
         public GameObject prefab;
         [Scene] public string scene;
