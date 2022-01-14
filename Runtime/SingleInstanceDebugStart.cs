@@ -127,7 +127,7 @@ namespace JamesFrowen.CSP.Examples
                     SceneManager.MoveGameObjectToScene(clone2, clientScene2);
                     IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
                     clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
-                    behaviour2.Setup(1f / manager.TickRate);
+                    behaviour2.Setup(new TickRunner() { TickRate = manager.TickRate });
                     clone2.GetComponent<Renderer>().material.color = Color.blue;
 
                     clone2.GetComponent<Renderer>().enabled = true;

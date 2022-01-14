@@ -233,8 +233,7 @@ namespace JamesFrowen.CSP
         {
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);
-            behaviour.ApplyInput(input, previous);
-            behaviour.NetworkFixedUpdate(time.FixedDeltaTime);
+            behaviour.NetworkFixedUpdate(input, previous);
         }
 
         public void InputTick(int tick)

@@ -31,7 +31,15 @@ namespace JamesFrowen.CSP.Example2
             body = GetComponent<Rigidbody>();
         }
 
-        public override void NetworkFixedUpdate(float fixedDelta) { }
+        public override void NetworkFixedUpdate(InputState input, InputState previous)
+        {
+            // input
+            // normalised so that speed isn't faster if moving diagonal
+            Vector3 move = new Vector3(x: input.Horizontal, y: 0, z: input.Vertical).normalized;
+
+            Vector3 topOfCube = transform.position + Vector3.up * .5f;
+            body.AddForceAtPosition(speed * move, topOfCube, ForceMode.Acceleration);
+        }
 
         public override void ApplyState(ObjectState state)
         {
@@ -59,14 +67,6 @@ namespace JamesFrowen.CSP.Example2
         // server always has inputs for player, but only owner client as them
         // todo move this check to controllers
         public override bool HasInput => HasAuthority || IsServer;
-        public override void ApplyInput(InputState input, InputState previous)
-        {
-            // normalised so that speed isn't faster if moving diagonal
-            Vector3 move = new Vector3(x: input.Horizontal, y: 0, z: input.Vertical).normalized;
-
-            Vector3 topOfCube = transform.position + Vector3.up * .5f;
-            body.AddForceAtPosition(speed * move, topOfCube, ForceMode.Acceleration);
-        }
 
         public override InputState MissingInput(InputState previous, int previousTick, int currentTick)
         {
@@ -109,21 +109,19 @@ namespace JamesFrowen.CSP.Example2
         #region IDebugPredictionBehaviour
         bool _afterImage;
         PredictionExample2 _copy;
-        float _FixedDeltaTime;
         IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
 
-        void IDebugPredictionBehaviour.Setup(float fixedDeltaTime)
+        void IDebugPredictionBehaviour.Setup(IPredictionTime time)
         {
-            _FixedDeltaTime = fixedDeltaTime;
+            PredictionTime = time;
         }
 
         InputState noNetworkPrevious;
         void IDebugPredictionBehaviour.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
-            ApplyInput(input, noNetworkPrevious);
-            NetworkFixedUpdate(_FixedDeltaTime);
-            gameObject.scene.GetPhysicsScene().Simulate(_FixedDeltaTime);
+            NetworkFixedUpdate(input, noNetworkPrevious);
+            gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }
 

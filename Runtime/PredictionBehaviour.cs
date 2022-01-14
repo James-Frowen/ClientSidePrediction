@@ -21,7 +21,7 @@ namespace JamesFrowen.CSP
         IClientController IPredictionBehaviour.ClientController => _client;
         IServerController IPredictionBehaviour.ServerController => _server;
 
-        public IPredictionTime PredictionTime { get; internal set; }
+        public IPredictionTime PredictionTime { get; set; }
 
         /// <summary>
         /// Used to disable input for this object
@@ -41,13 +41,6 @@ namespace JamesFrowen.CSP
         /// <param name="currentTick"></param>
         /// <returns></returns>
         public abstract TInput MissingInput(TInput previous, int previousTick, int currentTick);
-        /// <summary>
-        /// Apply inputs to object
-        /// <para>Called on Before NetworkFixedUpdate</para>
-        /// </summary>
-        /// <param name="input"></param>
-        /// <param name="previous"></param>
-        public abstract void ApplyInput(TInput input, TInput previous);
 
         /// <summary>
         /// Applies state to the object
@@ -60,13 +53,13 @@ namespace JamesFrowen.CSP
         /// <returns></returns>
         public abstract TState GatherState();
         /// <summary>
-        /// Modify the objects state
+        /// Apply inputs to object and modify the objects state.
         /// <para>Applies any physics/state logic to object here</para>
         /// <para>For example any custom gravity, drag, etc</para>
         /// <para>Called once per tick on server and client, and for each resimulation step on client</para>
         /// </summary>
         /// <param name="fixedDelta"></param>
-        public abstract void NetworkFixedUpdate(float fixedDelta);
+        public abstract void NetworkFixedUpdate(TInput input, TInput previous);
         /// <summary>
         /// Used to smooth movement on client after Resimulation
         /// <para>Call <see cref="ApplyState"/> using to set new position or Leave empty function for no smoothing</para>

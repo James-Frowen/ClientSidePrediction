@@ -162,31 +162,32 @@ namespace JamesFrowen.CSP
 
         void IServerController.Tick(int tick)
         {
+            TInput input = default, previous = default;
             if (behaviour.HasInput)
-                ApplyInputs(tick);
+                getValidInputs(tick, out input, out previous);
 
-            behaviour.NetworkFixedUpdate(time.FixedDeltaTime);
+            behaviour.NetworkFixedUpdate(input, previous);
 
             ClearPreviousInput(tick);
             lastSim = tick;
         }
 
-        void ApplyInputs(int tick)
+        void getValidInputs(int tick, out TInput input, out TInput previous)
         {
+            input = default;
+            previous = default;
             // dont need to do anything till first is received
             if (lastReceived == NEVER_RECEIVED)
                 return;
 
-            TInput input = getValidInput(tick);
-            TInput previous = getValidInput(tick - 1);
+            input = getValidInput(tick);
+            previous = getValidInput(tick - 1);
             if (input.Valid)
             {
                 lastValidInput = (tick, input);
             }
-
-            // apply the 
-            behaviour.ApplyInput(input, previous);
         }
+
         TInput getValidInput(int tick)
         {
             TInput input = GetInput(tick);

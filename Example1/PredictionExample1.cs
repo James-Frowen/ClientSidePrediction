@@ -20,18 +20,29 @@ namespace JamesFrowen.CSP.Example1
         static readonly ILogger logger = LogFactory.GetLogger<PredictionExample1>();
 
         private Rigidbody body;
+        const float speed = 15;
 
         protected void Awake()
         {
             body = GetComponent<Rigidbody>();
         }
 
-        public override void NetworkFixedUpdate(float fixedDelta)
+
+        public override void NetworkFixedUpdate(InputState input, InputState previous)
         {
+            // input
+            Vector3 move = input.Horizontal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
+            body.AddForce(speed * move, ForceMode.Acceleration);
+            if (input.jump && !previous.jump)
+            {
+                body.AddForce(Vector3.up * 10, ForceMode.Impulse);
+            }
+
+            // physics
             // stronger gravity when moving down
             float gravity = body.velocity.y < 0 ? 3 : 1;
             body.AddForce(gravity * Physics.gravity, ForceMode.Acceleration);
-            body.velocity += (gravity * Physics.gravity) * fixedDelta;
+            body.velocity += (gravity * Physics.gravity) * PredictionTime.FixedDeltaTime;
         }
 
         public override void ApplyState(ObjectState state)
@@ -52,18 +63,6 @@ namespace JamesFrowen.CSP.Example1
         }
 
         public override bool HasInput => true;
-
-        public override void ApplyInput(InputState input, InputState previous)
-        {
-            const float speed = 15;
-
-            Vector3 move = input.Horizontal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
-            body.AddForce(speed * move, ForceMode.Acceleration);
-            if (input.jump && !previous.jump)
-            {
-                body.AddForce(Vector3.up * 10, ForceMode.Impulse);
-            }
-        }
 
         public override InputState MissingInput(InputState previous, int previousTick, int currentTick)
         {
@@ -99,21 +98,19 @@ namespace JamesFrowen.CSP.Example1
 
         #region IDebugPredictionBehaviour
         PredictionExample1 _copy;
-        float _FixedDeltaTime;
         IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample1)value; }
 
-        void IDebugPredictionBehaviour.Setup(float fixedDeltaTime)
+        void IDebugPredictionBehaviour.Setup(IPredictionTime time)
         {
-            _FixedDeltaTime = fixedDeltaTime;
+            PredictionTime = time;
         }
 
         InputState noNetworkPrevious;
         void IDebugPredictionBehaviour.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
-            ApplyInput(input, noNetworkPrevious);
-            NetworkFixedUpdate(_FixedDeltaTime);
-            gameObject.scene.GetPhysicsScene().Simulate(_FixedDeltaTime);
+            NetworkFixedUpdate(input, noNetworkPrevious);
+            gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }
         void IDebugPredictionBehaviour.CreateAfterImage(object state) { }

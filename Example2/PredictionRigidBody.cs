@@ -30,7 +30,6 @@ namespace JamesFrowen.CSP.Example2
         public override bool HasInput => false;
         public override NoInput GetInput() => default;
         public override NoInput MissingInput(NoInput previous, int previousTick, int currentTick) => default;
-        public override void ApplyInput(NoInput input, NoInput previous) { }
         public override void ApplyState(ObjectState state)
         {
             body.position = state.position;
@@ -55,7 +54,7 @@ namespace JamesFrowen.CSP.Example2
             return new ObjectState(body);
         }
 
-        public override void NetworkFixedUpdate(float fixedDelta) { }
+        public override void NetworkFixedUpdate(NoInput input, NoInput previous) { }
 
         public override void PackInputMessage(NetworkWriter writer, int tick, NoInput[] inputs) { }
         protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, NoInput[]> handler) { }

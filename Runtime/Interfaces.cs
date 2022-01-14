@@ -43,8 +43,8 @@ namespace JamesFrowen.CSP
     {
         IDebugPredictionBehaviour Copy { get; set; }
 
+        void Setup(IPredictionTime time);
         void NoNetworkApply(object input);
-        void Setup(float fixedDeltaTime);
         void CreateAfterImage(object state);
     }
     interface IPredictionBehaviour
