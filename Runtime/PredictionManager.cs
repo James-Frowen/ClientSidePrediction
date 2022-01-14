@@ -64,11 +64,11 @@ namespace JamesFrowen.CSP
             if (_simulation == null)
                 _simulation = new DefaultPredictionSimulation(physicsMode, gameObject.scene);
 
-            Server?.Started.AddListener(ServerStarted);
-            Client?.Started.AddListener(ClientStarted);
+            Server?.Started.AddListener(ServerStart);
+            Client?.Started.AddListener(ClientStart);
         }
 
-        public void ServerStarted()
+        public void ServerStart()
         {
             _tickRunner = new TickRunner()
             {
@@ -78,27 +78,31 @@ namespace JamesFrowen.CSP
             // just pass in players collection, later this could be changed for match based stuff where you just pass in players for a match
             IReadOnlyCollection<INetworkPlayer> players = Server.Players;
             serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
-            _tickRunner.onTick += serverManager.Tick;
         }
 
-        public void ClientStarted()
+        public void ClientStart()
         {
-            if (Server != null && Server.Active) throw new NotSupportedException("Host mode not supported");
+            bool hostMode = Client.IsLocalClient;
 
-            var clientRunner = new ClientTickRunner(Client.World.Time,
-                   diffThreshold: ClientTickSettings.diffThreshold,
-                   timeScaleModifier: ClientTickSettings.timeScaleModifier,
-                   skipThreshold: ClientTickSettings.skipThreshold,
-                   movingAverageCount: ClientTickSettings.movingAverageCount
-                   )
+            if (hostMode)
             {
-                TickRate = TickRate,
-                ClientDelay = ClientTickSettings.clientDelay,
-            };
-
-            clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
-            clientRunner.onTick += clientManager.Tick;
-            _tickRunner = clientRunner;
+                clientManager = new ClientManager(hostMode, _simulation, _tickRunner, Client.World, Client.MessageHandler);
+            }
+            else
+            {
+                var clientRunner = new ClientTickRunner(Client.World.Time,
+                    diffThreshold: ClientTickSettings.diffThreshold,
+                    timeScaleModifier: ClientTickSettings.timeScaleModifier,
+                    skipThreshold: ClientTickSettings.skipThreshold,
+                    movingAverageCount: ClientTickSettings.movingAverageCount
+                    )
+                {
+                    TickRate = TickRate,
+                    ClientDelay = ClientTickSettings.clientDelay,
+                };
+                clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
+                _tickRunner = clientRunner;
+            }
         }
 
         private void Update()

@@ -29,11 +29,12 @@ namespace JamesFrowen.CSP
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
 
-        public ServerManager(IEnumerable<INetworkPlayer> players, IPredictionSimulation simulation, IPredictionTime time, NetworkWorld world)
+        public ServerManager(IEnumerable<INetworkPlayer> players, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world)
         {
             this.players = players;
             this.simulation = simulation;
-            this.time = time;
+            time = tickRunner;
+            tickRunner.onTick += Tick;
 
             world.onSpawn += OnSpawn;
             world.onUnspawn += OnUnspawn;
@@ -201,6 +202,20 @@ namespace JamesFrowen.CSP
             {
                 if (logger.WarnEnabled()) logger.LogWarning($"No inputs for {tick}");
                 return behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
+            }
+        }
+
+        void IServerController.ReceiveHostInput<TInput2>(int tick, TInput2 _input)
+        {
+            // todo check Alloc from boxing
+            if (_input is TInput inpit)
+            {
+                Debug.Assert(input.Valid);
+                SetInput(t, input);
+            }
+            else
+            {
+                throw new InvalidOperationException("Input type didn't match");
             }
         }
     }

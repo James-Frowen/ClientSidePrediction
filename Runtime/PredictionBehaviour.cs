@@ -45,8 +45,8 @@ namespace JamesFrowen.CSP
         ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
 
-        IClientController IPredictionBehaviour.ClientController => _client;
-        IServerController IPredictionBehaviour.ServerController => _server;
+        internal IClientController ClientController => _client;
+        internal IServerController ServerController => _server;
 
         public IPredictionTime PredictionTime { get; set; }
 

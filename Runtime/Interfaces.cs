@@ -52,6 +52,7 @@ namespace JamesFrowen.CSP
     {
         void Tick(int tick);
         void WriteState(NetworkWriter writer);
+        void ReceiveHostInput<TInput>(int tick, TInput _input) where TInput : IInputState;
     }
     public interface IInputState
     {
@@ -65,7 +66,7 @@ namespace JamesFrowen.CSP
         void NoNetworkApply(object input);
         void CreateAfterImage(object state);
     }
-    interface IPredictionBehaviour
+    internal interface IPredictionBehaviour
     {
         IClientController ClientController { get; }
         IServerController ServerController { get; }

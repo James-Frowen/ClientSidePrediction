@@ -40,6 +40,7 @@ namespace JamesFrowen.CSP
 
         readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
 
+        readonly bool hostMode;
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
         readonly ClientTickRunner clientTickRunner;
@@ -48,8 +49,29 @@ namespace JamesFrowen.CSP
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
 
+        public ClientManager(bool hostMode, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world, MessageHandler messageHandler)
+        {
+            if (!hostMode)
+                throw new InvalidOperationException("Wrong constructor used for non-host mode");
+
+            this.hostMode = hostMode;
+            this.simulation = simulation;
+            time = tickRunner;
+            tickRunner.onTick += Tick;
+
+            messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
+            world.onSpawn += OnSpawn;
+            world.onUnspawn += OnUnspawn;
+
+            // add existing items
+            foreach (NetworkIdentity item in world.SpawnedIdentities)
+            {
+                OnSpawn(item);
+            }
+        }
         public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, MessageHandler messageHandler)
         {
+            hostMode = false;
             this.simulation = simulation;
             time = clientTickRunner;
             this.clientTickRunner = clientTickRunner;
@@ -67,8 +89,16 @@ namespace JamesFrowen.CSP
             }
         }
 
+        void ThrowIfHostMode()
+        {
+            if (hostMode)
+                throw new InvalidOperationException("Should not be called in host mode");
+        }
+
         private void OnTickSkip()
         {
+            ThrowIfHostMode();
+
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.OnTickSkip();
         }
@@ -88,6 +118,11 @@ namespace JamesFrowen.CSP
 
         void ReceiveWorldState(INetworkPlayer _, WorldState state)
         {
+            // do nothing with state in hostmode
+            // because server and client objects are the same
+            if (hostMode)
+                return;
+
             ReceiveState(state.tick, state.state);
             clientTickRunner.OnMessage(state.tick);
         }
@@ -123,6 +158,8 @@ namespace JamesFrowen.CSP
 
         void Resimulate(int from, int to)
         {
+            ThrowIfHostMode();
+
             logger.Log($"Resimulate from {from} to {to}");
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
@@ -144,7 +181,10 @@ namespace JamesFrowen.CSP
 
         void Simulate(int tick)
         {
+            ThrowIfHostMode();
+
             clientTime.Tick = tick;
+            
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.Simulate(tick);
             simulation.Simulate(time.FixedDeltaTime);
@@ -168,7 +208,9 @@ namespace JamesFrowen.CSP
                 // get and send inputs
                 behaviour.ClientController.InputTick(tick);
             }
-            Simulate(tick);
+            // server will simulate in hostmode
+            if (!hostMode)
+                Simulate(tick);
         }
     }
 
@@ -201,8 +243,16 @@ namespace JamesFrowen.CSP
                 _inputBuffer = new TInput[bufferSize];
         }
 
+        void ThrowIfHostMode()
+        {
+            if (behaviour.IsLocalClient)
+                throw new InvalidOperationException("Should not be called in host mode");
+        }
+
         public void ReceiveState(int tick, NetworkReader reader)
         {
+            ThrowIfHostMode();
+
             TState state = reader.Read<TState>();
             if (lastReceivedTick > tick)
             {
@@ -217,6 +267,8 @@ namespace JamesFrowen.CSP
 
         public void BeforeResimulate()
         {
+            ThrowIfHostMode();
+
             // if receivedTick = 100
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
@@ -231,6 +283,8 @@ namespace JamesFrowen.CSP
         }
         public void AfterResimulate()
         {
+            ThrowIfHostMode();
+
             TState next = behaviour.GatherState();
             behaviour.ResimulationTransition(beforeResimulateState, next);
             beforeResimulateState = default;
@@ -242,6 +296,8 @@ namespace JamesFrowen.CSP
         /// <param name="tick"></param>
         void IClientController.Simulate(int tick)
         {
+            ThrowIfHostMode();
+
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);
             if (behaviour.UseInputs())
@@ -263,12 +319,18 @@ namespace JamesFrowen.CSP
             SendInput(tick, thisTickInput);
         }
 
-        void SendInput(int tick, TInput state)
+        void SendInput(int tick, TInput input)
         {
-            if (behaviour is IDebugPredictionBehaviour debug)
-                debug.Copy?.NoNetworkApply(state);
+            if (behaviour.IsLocalClient)
+            {
+                behaviour.ServerController.ReceiveHostInput(tick, input);
+                return;
+            }
 
-            pendingInputs.Add(tick, state);
+            if (behaviour is IDebugPredictionBehaviour debug)
+                debug.Copy?.NoNetworkApply(input);
+
+            pendingInputs.Add(tick, input);
 
             var inputs = new TInput[pendingInputs.Count];
             foreach (KeyValuePair<int, TInput> pending in pendingInputs)
