@@ -177,17 +177,27 @@ namespace JamesFrowen.CSP
             if (lastReceived == NEVER_RECEIVED)
                 return;
 
-            TInput input = GetInput(tick);
-            TInput previous = GetInput(tick - 1);
+            TInput input = getValidInput(tick);
+            TInput previous = getValidInput(tick - 1);
             if (input.Valid)
             {
                 lastValidInput = (tick, input);
-                behaviour.ApplyInput(input, previous);
+            }
+
+            // apply the 
+            behaviour.ApplyInput(input, previous);
+        }
+        TInput getValidInput(int tick)
+        {
+            TInput input = GetInput(tick);
+            if (input.Valid)
+            {
+                return input;
             }
             else
             {
                 if (logger.WarnEnabled()) logger.LogWarning($"No inputs for {tick}");
-                behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
+                return behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
             }
         }
     }
