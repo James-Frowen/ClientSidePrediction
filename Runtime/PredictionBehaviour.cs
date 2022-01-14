@@ -21,7 +21,7 @@ namespace JamesFrowen.CSP
         IClientController IPredictionBehaviour.ClientController => _client;
         IServerController IPredictionBehaviour.ServerController => _server;
 
-        public IPredictionTime Time { get; internal set; }
+        public IPredictionTime PredictionTime { get; internal set; }
 
         /// <summary>
         /// Used to disable input for this object
@@ -83,7 +83,7 @@ namespace JamesFrowen.CSP
 
         void IPredictionBehaviour.ServerSetup(IPredictionTime time)
         {
-            Time = time;
+            PredictionTime = time;
             _server = new ServerController<TInput, TState>(this, time, Helper.BufferSize);
 
             // todo why doesn't IServer have message handler
@@ -92,7 +92,7 @@ namespace JamesFrowen.CSP
         }
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)
         {
-            Time = time;
+            PredictionTime = time;
             _client = new ClientController<TInput, TState>(this, time, Helper.BufferSize);
         }
     }
