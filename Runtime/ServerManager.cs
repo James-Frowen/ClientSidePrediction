@@ -208,10 +208,10 @@ namespace JamesFrowen.CSP
         void IServerController.ReceiveHostInput<TInput2>(int tick, TInput2 _input)
         {
             // todo check Alloc from boxing
-            if (_input is TInput inpit)
+            if (_input is TInput input)
             {
                 Debug.Assert(input.Valid);
-                SetInput(t, input);
+                SetInput(tick, input);
             }
             else
             {

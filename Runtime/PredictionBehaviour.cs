@@ -45,8 +45,11 @@ namespace JamesFrowen.CSP
         ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
 
+        // annoying cs stuff to have internal property and interface
         internal IClientController ClientController => _client;
         internal IServerController ServerController => _server;
+        IClientController IPredictionBehaviour.ClientController => _client;
+        IServerController IPredictionBehaviour.ServerController => _server;
 
         public IPredictionTime PredictionTime { get; set; }
 

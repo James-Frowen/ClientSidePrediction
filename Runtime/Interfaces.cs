@@ -38,7 +38,7 @@ namespace JamesFrowen.CSP
         /// </summary>
         int Tick { get; }
     }
-    public interface IClientController
+    internal interface IClientController
     {
         void AfterResimulate();
         void BeforeResimulate();
@@ -48,7 +48,7 @@ namespace JamesFrowen.CSP
         void InputTick(int clientLastSim);
         void OnTickSkip();
     }
-    public interface IServerController
+    internal interface IServerController
     {
         void Tick(int tick);
         void WriteState(NetworkWriter writer);

@@ -15,7 +15,6 @@ using Mirage.Serialization;
 using Mirage.SocketLayer;
 using UnityEngine;
 
-
 namespace JamesFrowen.CSP
 {
     class ClientTime : IPredictionTime
@@ -184,7 +183,7 @@ namespace JamesFrowen.CSP
             ThrowIfHostMode();
 
             clientTime.Tick = tick;
-            
+
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.Simulate(tick);
             simulation.Simulate(time.FixedDeltaTime);
