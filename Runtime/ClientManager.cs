@@ -181,7 +181,7 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientController");
 
-        readonly PredictionBehaviour<TInput, TState> behaviour;
+        readonly PredictionBehaviourBase<TInput, TState> behaviour;
 
         TInput[] _inputBuffer;
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
@@ -194,10 +194,11 @@ namespace JamesFrowen.CSP
         Dictionary<int, TInput> pendingInputs = new Dictionary<int, TInput>();
         private TState beforeResimulateState;
 
-        public ClientController(PredictionBehaviour<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
+        public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
-            _inputBuffer = new TInput[bufferSize];
+            if (behaviour.HasInput)
+                _inputBuffer = new TInput[bufferSize];
         }
 
         public void ReceiveState(int tick, NetworkReader reader)
@@ -243,7 +244,7 @@ namespace JamesFrowen.CSP
         {
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);
-            if (behaviour)
+            if (behaviour.UseInputs())
                 behaviour.ApplyInputs(input, previous);
             behaviour.NetworkFixedUpdate();
         }

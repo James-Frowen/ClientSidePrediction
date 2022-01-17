@@ -93,7 +93,7 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 
-        readonly PredictionBehaviour<TInput, TState> behaviour;
+        readonly PredictionBehaviourBase<TInput, TState> behaviour;
         readonly IPredictionTime time;
 
         TInput[] _inputBuffer;
@@ -108,11 +108,12 @@ namespace JamesFrowen.CSP
 
         int lastSim;
 
-        public ServerController(PredictionBehaviour<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
+        public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
         {
             this.behaviour = behaviour;
             this.time = time;
-            _inputBuffer = new TInput[bufferSize];
+            if (behaviour.HasInput)
+                _inputBuffer = new TInput[bufferSize];
         }
 
         void IServerController.WriteState(NetworkWriter writer)

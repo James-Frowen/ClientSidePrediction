@@ -7,15 +7,12 @@
  * permission of James Frowen
  *******************************************************/
 
-using System;
-using Mirage;
 using Mirage.Logging;
-using Mirage.Serialization;
 using UnityEngine;
 
 namespace JamesFrowen.CSP.Example2
 {
-    public class PredictionRigidBody : PredictionBehaviour<NoInput, ObjectState>
+    public class PredictionRigidBody : PredictionBehaviour<ObjectState>
     {
         static readonly ILogger logger = LogFactory.GetLogger<PredictionExample2>();
 
@@ -27,10 +24,6 @@ namespace JamesFrowen.CSP.Example2
             body = GetComponent<Rigidbody>();
         }
 
-        public override bool HasInput => false;
-        public override NoInput GetInput() => default;
-        public override void ApplyInputs(NoInput input, NoInput previous) { }
-        public override NoInput MissingInput(NoInput previous, int previousTick, int currentTick) => default;
         public override void ApplyState(ObjectState state)
         {
             body.position = state.position;
@@ -56,13 +49,5 @@ namespace JamesFrowen.CSP.Example2
         }
 
         public override void NetworkFixedUpdate() { }
-
-        public override void PackInputMessage(NetworkWriter writer, int tick, NoInput[] inputs) { }
-        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, NoInput[]> handler) { }
-    }
-    [NetworkMessage]
-    public struct NoInput : IInputState
-    {
-        public bool Valid => true;
     }
 }

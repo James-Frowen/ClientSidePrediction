@@ -13,20 +13,34 @@ using Mirage.Serialization;
 
 namespace JamesFrowen.CSP
 {
-    // todo add way to avoid empty input methods for non-player objects
-    ///// <summary>
-    ///// Base class for Client side prediction for objects without input, like physics objects in a scene.
-    ///// </summary>
-    ///// <typeparam name="TState"></typeparam>
-    //public abstract class PredictionBehaviour<TState> : NetworkBehaviour, IPredictionBehaviour
-    //{
+    public struct NoInputs : IInputState
+    {
+        public bool Valid => throw new NotImplementedException();
+    }
+    /// <summary>
+    /// Base class for Client side prediction for objects without input, like physics objects in a scene.
+    /// </summary>
+    /// <typeparam name="TState"></typeparam>
+    public abstract class PredictionBehaviour<TState> : PredictionBehaviourBase<NoInputs, TState>, IPredictionBehaviour
+    {
+        public sealed override bool HasInput => false;
+        public sealed override NoInputs GetInput() => throw new NotSupportedException();
+        public sealed override NoInputs MissingInput(NoInputs previous, int previousTick, int currentTick) => throw new NotSupportedException();
+        public sealed override void ApplyInputs(NoInputs input, NoInputs previous) => throw new NotSupportedException();
+        protected sealed override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, NoInputs[]> handler) => throw new NotSupportedException();
+        public override void PackInputMessage(NetworkWriter writer, int tick, NoInputs[] inputs) => throw new NotSupportedException();
+    }
 
-    //}
     /// <summary>
     /// Base class for Client side prediction for objects with input, like player objects with movement.
     /// </summary>
     /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
+    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState>, IPredictionBehaviour where TInput : IInputState
+    {
+        public sealed override bool HasInput => true;
+    }
+
+    public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
     {
         ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
@@ -102,7 +116,8 @@ namespace JamesFrowen.CSP
 
             // todo why doesn't IServer have message handler
             var networkServer = ((NetworkServer)Identity.Server);
-            RegisterInputMessage(networkServer, (player, tick, inputs) => _server.OnReceiveInput(player, tick, inputs));
+            if (HasInput)
+                RegisterInputMessage(networkServer, (player, tick, inputs) => _server.OnReceiveInput(player, tick, inputs));
         }
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)
         {
