@@ -94,7 +94,6 @@ namespace JamesFrowen.CSP
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
-        readonly IPredictionTime time;
 
         TInput[] _inputBuffer;
         TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
@@ -108,10 +107,9 @@ namespace JamesFrowen.CSP
 
         int lastSim;
 
-        public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, IPredictionTime time, int bufferSize)
+        public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
-            this.time = time;
             if (behaviour.HasInput)
                 _inputBuffer = new TInput[bufferSize];
         }

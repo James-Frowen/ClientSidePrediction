@@ -68,8 +68,6 @@ namespace JamesFrowen.CSP.Example2
             return new ObjectState(body);
         }
 
-        public override bool HasInput => true;
-
         public override InputState MissingInput(InputState previous, int previousTick, int currentTick)
         {
             // just copy old input, It is likely that missing input is just same as previous

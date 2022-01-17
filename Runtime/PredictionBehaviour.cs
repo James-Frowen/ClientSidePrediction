@@ -112,7 +112,7 @@ namespace JamesFrowen.CSP
         void IPredictionBehaviour.ServerSetup(IPredictionTime time)
         {
             PredictionTime = time;
-            _server = new ServerController<TInput, TState>(this, time, Helper.BufferSize);
+            _server = new ServerController<TInput, TState>(this, Helper.BufferSize);
 
             // todo why doesn't IServer have message handler
             var networkServer = ((NetworkServer)Identity.Server);
@@ -122,7 +122,7 @@ namespace JamesFrowen.CSP
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)
         {
             PredictionTime = time;
-            _client = new ClientController<TInput, TState>(this, time, Helper.BufferSize);
+            _client = new ClientController<TInput, TState>(this, Helper.BufferSize);
         }
     }
 
