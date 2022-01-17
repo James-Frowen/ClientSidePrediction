@@ -13,6 +13,19 @@ using Mirage.Serialization;
 
 namespace JamesFrowen.CSP
 {
+    // todo add way to avoid empty input methods for non-player objects
+    ///// <summary>
+    ///// Base class for Client side prediction for objects without input, like physics objects in a scene.
+    ///// </summary>
+    ///// <typeparam name="TState"></typeparam>
+    //public abstract class PredictionBehaviour<TState> : NetworkBehaviour, IPredictionBehaviour
+    //{
+
+    //}
+    /// <summary>
+    /// Base class for Client side prediction for objects with input, like player objects with movement.
+    /// </summary>
+    /// <typeparam name="TState"></typeparam>
     public abstract class PredictionBehaviour<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
     {
         ClientController<TInput, TState> _client;
@@ -52,14 +65,22 @@ namespace JamesFrowen.CSP
         /// </summary>
         /// <returns></returns>
         public abstract TState GatherState();
+
         /// <summary>
-        /// Apply inputs to object and modify the objects state.
+        /// Called on Server and on clients with authority
+        /// <para>Called before <see cref="NetworkFixedUpdate"/></para>
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="previous"></param>
+        public abstract void ApplyInputs(TInput input, TInput previous);
+        /// <summary>
+        /// Modify the objects state. Called on all objects, use <see cref="ApplyInputs(TInput, TInput)"/> for effects on owned objects
         /// <para>Applies any physics/state logic to object here</para>
         /// <para>For example any custom gravity, drag, etc</para>
         /// <para>Called once per tick on server and client, and for each resimulation step on client</para>
         /// </summary>
         /// <param name="fixedDelta"></param>
-        public abstract void NetworkFixedUpdate(TInput input, TInput previous);
+        public abstract void NetworkFixedUpdate();
         /// <summary>
         /// Used to smooth movement on client after Resimulation
         /// <para>Call <see cref="ApplyState"/> using to set new position or Leave empty function for no smoothing</para>
@@ -87,6 +108,36 @@ namespace JamesFrowen.CSP
         {
             PredictionTime = time;
             _client = new ClientController<TInput, TState>(this, time, Helper.BufferSize);
+        }
+    }
+
+    internal static class PredictionBehaviourExtensions
+    {
+        /// <summary>
+        /// Does the objects have inputs, and have control (eg server or authority
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="behaviour"></param>
+        /// <returns></returns>
+        public static bool UseInputs<T>(this T behaviour) where T : NetworkBehaviour, IPredictionBehaviour
+        {
+            // if no inputs implemented, then just return early
+            if (!behaviour.HasInput)
+                return false;
+
+            // is server and object has an owner
+            // note: this mean un-owned objects can't be controled by anyone expect the server
+            if (behaviour.IsServer)
+            {
+                return behaviour.Owner != null;
+            }
+            // is client and has authority over the object, like the player object
+            else if (behaviour.IsClient)
+            {
+                return behaviour.HasAuthority;
+            }
+
+            return false;
         }
     }
 }

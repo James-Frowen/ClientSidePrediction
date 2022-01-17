@@ -27,18 +27,17 @@ namespace JamesFrowen.CSP.Example1
             body = GetComponent<Rigidbody>();
         }
 
-
-        public override void NetworkFixedUpdate(InputState input, InputState previous)
+        public override void ApplyInputs(InputState input, InputState previous)
         {
-            // input
             Vector3 move = input.Horizontal * new Vector3(1, .25f /*small up force so it can move along floor*/, 0);
             body.AddForce(speed * move, ForceMode.Acceleration);
             if (input.jump && !previous.jump)
             {
                 body.AddForce(Vector3.up * 10, ForceMode.Impulse);
             }
-
-            // physics
+        }
+        public override void NetworkFixedUpdate()
+        {
             // stronger gravity when moving down
             float gravity = body.velocity.y < 0 ? 3 : 1;
             body.AddForce(gravity * Physics.gravity, ForceMode.Acceleration);
@@ -109,7 +108,8 @@ namespace JamesFrowen.CSP.Example1
         void IDebugPredictionBehaviour.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
-            NetworkFixedUpdate(input, noNetworkPrevious);
+            ApplyInputs(input, noNetworkPrevious);
+            NetworkFixedUpdate();
             gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }

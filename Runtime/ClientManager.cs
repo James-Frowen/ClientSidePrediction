@@ -243,12 +243,14 @@ namespace JamesFrowen.CSP
         {
             TInput input = GetInput(tick);
             TInput previous = GetInput(tick - 1);
-            behaviour.NetworkFixedUpdate(input, previous);
+            if (behaviour)
+                behaviour.ApplyInputs(input, previous);
+            behaviour.NetworkFixedUpdate();
         }
 
         public void InputTick(int tick)
         {
-            if (!behaviour.HasInput)
+            if (!behaviour.UseInputs())
                 return;
 
             if (lastInputTick != 0 && lastInputTick != tick - 1)

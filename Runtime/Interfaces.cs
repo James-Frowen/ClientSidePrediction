@@ -69,6 +69,7 @@ namespace JamesFrowen.CSP
     {
         IClientController ClientController { get; }
         IServerController ServerController { get; }
+        bool HasInput { get; }
 
         void ServerSetup(IPredictionTime time);
 

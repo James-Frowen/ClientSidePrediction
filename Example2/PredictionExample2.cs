@@ -31,14 +31,18 @@ namespace JamesFrowen.CSP.Example2
             body = GetComponent<Rigidbody>();
         }
 
-        public override void NetworkFixedUpdate(InputState input, InputState previous)
+        public override void ApplyInputs(InputState input, InputState previous)
         {
-            // input
             // normalised so that speed isn't faster if moving diagonal
             Vector3 move = new Vector3(x: input.Horizontal, y: 0, z: input.Vertical).normalized;
 
             Vector3 topOfCube = transform.position + Vector3.up * .5f;
             body.AddForceAtPosition(speed * move, topOfCube, ForceMode.Acceleration);
+        }
+
+        public override void NetworkFixedUpdate()
+        {
+            // no extra physics, rigidbody will apply its own gravity
         }
 
         public override void ApplyState(ObjectState state)
@@ -64,9 +68,7 @@ namespace JamesFrowen.CSP.Example2
             return new ObjectState(body);
         }
 
-        // server always has inputs for player, but only owner client as them
-        // todo move this check to controllers
-        public override bool HasInput => HasAuthority || IsServer;
+        public override bool HasInput => true;
 
         public override InputState MissingInput(InputState previous, int previousTick, int currentTick)
         {
@@ -120,7 +122,8 @@ namespace JamesFrowen.CSP.Example2
         void IDebugPredictionBehaviour.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
-            NetworkFixedUpdate(input, noNetworkPrevious);
+            ApplyInputs(input, noNetworkPrevious);
+            NetworkFixedUpdate();
             gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }

@@ -163,10 +163,13 @@ namespace JamesFrowen.CSP
         void IServerController.Tick(int tick)
         {
             TInput input = default, previous = default;
-            if (behaviour.HasInput)
+            if (behaviour.UseInputs())
+            {
                 getValidInputs(tick, out input, out previous);
+                behaviour.ApplyInputs(input, previous);
+            }
 
-            behaviour.NetworkFixedUpdate(input, previous);
+            behaviour.NetworkFixedUpdate();
 
             ClearPreviousInput(tick);
             lastSim = tick;
