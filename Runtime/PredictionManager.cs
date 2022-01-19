@@ -14,7 +14,6 @@ using Mirage;
 using Mirage.Logging;
 using UnityEngine;
 
-
 namespace JamesFrowen.CSP
 {
     [Serializable]
@@ -77,6 +76,7 @@ namespace JamesFrowen.CSP
 
             // just pass in players collection, later this could be changed for match based stuff where you just pass in players for a match
             IReadOnlyCollection<INetworkPlayer> players = Server.Players;
+
             serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
         }
 
@@ -86,7 +86,10 @@ namespace JamesFrowen.CSP
 
             if (hostMode)
             {
-                clientManager = new ClientManager(hostMode, _simulation, _tickRunner, Client.World, Client.MessageHandler);
+                serverManager.SetHostMode();
+                // todo clean up host stuff in ClientManager
+                // todo add throw check inside ClientManager/clientset up to throw if server is active (host mode just uses server controller+behaviour)
+                //clientManager = new ClientManager(hostMode, _simulation, _tickRunner, Client.World, Client.MessageHandler);
             }
             else
             {

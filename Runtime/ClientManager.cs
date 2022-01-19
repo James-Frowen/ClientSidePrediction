@@ -191,6 +191,9 @@ namespace JamesFrowen.CSP
 
         internal void Tick(int tick)
         {
+            // do nothing in host mode, server controller is in charge
+            if (hostMode) return;
+
             // set lastSim to +1, so if we receive new snapshot, then we sim up to 106 again
             // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
             // todo: what happens if we do 2 at once, is that really a problem?
@@ -207,9 +210,9 @@ namespace JamesFrowen.CSP
                 // get and send inputs
                 behaviour.ClientController.InputTick(tick);
             }
-            // server will simulate in hostmode
-            if (!hostMode)
-                Simulate(tick);
+
+
+            Simulate(tick);
         }
     }
 
@@ -238,7 +241,7 @@ namespace JamesFrowen.CSP
         public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
-            if (behaviour.HasInput)
+            if (behaviour.UseInputs())
                 _inputBuffer = new TInput[bufferSize];
         }
 

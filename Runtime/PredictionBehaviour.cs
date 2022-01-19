@@ -119,7 +119,7 @@ namespace JamesFrowen.CSP
 
             // todo why doesn't IServer have message handler
             var networkServer = ((NetworkServer)Identity.Server);
-            if (HasInput)
+            if (this.UseInputs())
                 RegisterInputMessage(networkServer, (player, tick, inputs) => _server.OnReceiveInput(player, tick, inputs));
         }
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)

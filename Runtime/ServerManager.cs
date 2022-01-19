@@ -29,6 +29,16 @@ namespace JamesFrowen.CSP
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
 
+        bool hostMode;
+        internal void SetHostMode()
+        {
+            hostMode = true;
+            foreach (KeyValuePair<uint, IPredictionBehaviour> behaviour in behaviours)
+            {
+                behaviour.Value.ServerController.SetHostMode();
+            }
+        }
+
         public ServerManager(IEnumerable<INetworkPlayer> players, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world)
         {
             this.players = players;
@@ -52,6 +62,8 @@ namespace JamesFrowen.CSP
             {
                 behaviours.Add(identity.NetId, behaviour);
                 behaviour.ServerSetup(time);
+                if (hostMode)
+                    behaviour.ServerController.SetHostMode();
             }
         }
         private void OnUnspawn(NetworkIdentity identity)
@@ -108,10 +120,16 @@ namespace JamesFrowen.CSP
 
         int lastSim;
 
+        bool hostMode;
+        void IServerController.SetHostMode()
+        {
+            hostMode = true;
+        }
+
         public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
-            if (behaviour.HasInput)
+            if (behaviour.UseInputs())
                 _inputBuffer = new TInput[bufferSize];
         }
 
@@ -162,16 +180,23 @@ namespace JamesFrowen.CSP
 
         void IServerController.Tick(int tick)
         {
-            TInput input = default, previous = default;
-            if (behaviour.UseInputs())
+            bool hasInputs = behaviour.UseInputs();
+            if (hasInputs)
             {
-                getValidInputs(tick, out input, out previous);
+                if (hostMode)
+                {
+                    TInput thisTickInput = behaviour.GetInput();
+                    SetInput(tick, thisTickInput);
+                }
+
+                getValidInputs(tick, out TInput input, out TInput previous);
                 behaviour.ApplyInputs(input, previous);
             }
 
             behaviour.NetworkFixedUpdate();
 
-            ClearPreviousInput(tick);
+            if (hasInputs)
+                ClearPreviousInput(tick);
             lastSim = tick;
         }
 
@@ -180,7 +205,8 @@ namespace JamesFrowen.CSP
             input = default;
             previous = default;
             // dont need to do anything till first is received
-            if (lastReceived == NEVER_RECEIVED)
+            // skip check hostmode, there are always inputs for hostmode
+            if (!hostMode && lastReceived == NEVER_RECEIVED)
                 return;
 
             input = getValidInput(tick);
@@ -200,7 +226,7 @@ namespace JamesFrowen.CSP
             }
             else
             {
-                if (logger.WarnEnabled()) logger.LogWarning($"No inputs for {tick}");
+                if (logger.LogEnabled()) logger.Log($"No inputs for {tick}");
                 return behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
             }
         }

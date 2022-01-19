@@ -53,6 +53,7 @@ namespace JamesFrowen.CSP
         void Tick(int tick);
         void WriteState(NetworkWriter writer);
         void ReceiveHostInput<TInput>(int tick, TInput _input) where TInput : IInputState;
+        void SetHostMode();
     }
     public interface IInputState
     {
@@ -68,12 +69,11 @@ namespace JamesFrowen.CSP
     }
     internal interface IPredictionBehaviour
     {
-        IClientController ClientController { get; }
         IServerController ServerController { get; }
+        IClientController ClientController { get; }
         bool HasInput { get; }
 
         void ServerSetup(IPredictionTime time);
-
         void ClientSetup(IPredictionTime time);
     }
 }
