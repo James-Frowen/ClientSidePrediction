@@ -75,5 +75,7 @@ namespace JamesFrowen.CSP
 
         void ServerSetup(IPredictionTime time);
         void ClientSetup(IPredictionTime time);
+        void ServerCleanUp();
+        void ClientCleanUp();
     }
 }

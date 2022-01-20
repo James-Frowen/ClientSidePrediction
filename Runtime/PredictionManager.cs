@@ -63,11 +63,13 @@ namespace JamesFrowen.CSP
             if (_simulation == null)
                 _simulation = new DefaultPredictionSimulation(physicsMode, gameObject.scene);
 
-            Server?.Started.AddListener(ServerStart);
-            Client?.Started.AddListener(ClientStart);
+            Server?.Started.AddListener(ServerStarted);
+            Server?.Stopped.AddListener(ServerStopped);
+            Client?.Started.AddListener(ClientStarted);
+            Client?.Disconnected.AddListener(ClientStopped);
         }
 
-        public void ServerStart()
+        void ServerStarted()
         {
             _tickRunner = new TickRunner()
             {
@@ -80,7 +82,18 @@ namespace JamesFrowen.CSP
             serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
         }
 
-        public void ClientStart()
+        void ServerStopped()
+        {
+            foreach (NetworkIdentity obj in Server.World.SpawnedIdentities)
+            {
+                if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
+                    behaviour.ServerCleanUp();
+            }
+            _tickRunner = null;
+            serverManager = null;
+        }
+
+        void ClientStarted()
         {
             bool hostMode = Client.IsLocalClient;
 
@@ -106,6 +119,17 @@ namespace JamesFrowen.CSP
                 clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
                 _tickRunner = clientRunner;
             }
+        }
+
+        void ClientStopped(ClientStoppedReason _)
+        {
+            foreach (NetworkIdentity obj in Client.World.SpawnedIdentities)
+            {
+                if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
+                    behaviour.ClientCleanUp();
+            }
+            _tickRunner = null;
+            clientManager = null;
         }
 
         private void Update()

@@ -127,6 +127,13 @@ namespace JamesFrowen.CSP
             PredictionTime = time;
             _client = new ClientController<TInput, TState>(this, Helper.BufferSize);
         }
+
+        void IPredictionBehaviour.CleanUp()
+        {
+            PredictionTime = null;
+            _client = null;
+            _server = null;
+        }
     }
 
     internal static class PredictionBehaviourExtensions
