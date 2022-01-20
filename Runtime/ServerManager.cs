@@ -183,7 +183,8 @@ namespace JamesFrowen.CSP
             bool hasInputs = behaviour.UseInputs();
             if (hasInputs)
             {
-                if (hostMode)
+                // hostmode + host client has HasAuthority
+                if (hostMode && behaviour.HasAuthority)
                 {
                     TInput thisTickInput = behaviour.GetInput();
                     SetInput(tick, thisTickInput);
