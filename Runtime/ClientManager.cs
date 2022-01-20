@@ -303,10 +303,12 @@ namespace JamesFrowen.CSP
         {
             ThrowIfHostMode();
 
-            TInput input = GetInput(tick);
-            TInput previous = GetInput(tick - 1);
             if (behaviour.UseInputs())
+            {
+                TInput input = GetInput(tick);
+                TInput previous = GetInput(tick - 1);
                 behaviour.ApplyInputs(input, previous);
+            }
             behaviour.NetworkFixedUpdate();
         }
 
