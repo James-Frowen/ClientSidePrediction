@@ -50,23 +50,24 @@ namespace JamesFrowen.CSP
 
         public ClientManager(bool hostMode, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world, MessageHandler messageHandler)
         {
-            if (!hostMode)
-                throw new InvalidOperationException("Wrong constructor used for non-host mode");
+            throw new NotSupportedException();
+            //if (!hostMode)
+            //    throw new InvalidOperationException("Wrong constructor used for non-host mode");
 
-            this.hostMode = hostMode;
-            this.simulation = simulation;
-            time = tickRunner;
-            tickRunner.onTick += Tick;
+            //this.hostMode = hostMode;
+            //this.simulation = simulation;
+            //time = tickRunner;
+            //tickRunner.onTick += Tick;
 
-            messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
-            world.onSpawn += OnSpawn;
-            world.onUnspawn += OnUnspawn;
+            //messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
+            //world.onSpawn += OnSpawn;
+            //world.onUnspawn += OnUnspawn;
 
-            // add existing items
-            foreach (NetworkIdentity item in world.SpawnedIdentities)
-            {
-                OnSpawn(item);
-            }
+            //// add existing items
+            //foreach (NetworkIdentity item in world.SpawnedIdentities)
+            //{
+            //    OnSpawn(item);
+            //}
         }
         public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, MessageHandler messageHandler)
         {
@@ -74,6 +75,7 @@ namespace JamesFrowen.CSP
             this.simulation = simulation;
             time = clientTickRunner;
             this.clientTickRunner = clientTickRunner;
+            this.clientTickRunner.onTick += Tick;
             this.clientTickRunner.OnTickSkip += OnTickSkip;
             clientTime = new ClientTime(time.FixedDeltaTime);
 
@@ -106,6 +108,7 @@ namespace JamesFrowen.CSP
         {
             if (identity.TryGetComponent(out IPredictionBehaviour behaviour))
             {
+                if (logger.LogEnabled()) logger.Log($"Spawned {identity.NetId} {behaviour.GetType()}");
                 behaviours.Add(identity.NetId, behaviour);
                 behaviour.ClientSetup(clientTime);
             }

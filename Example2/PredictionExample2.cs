@@ -85,7 +85,7 @@ namespace JamesFrowen.CSP.Example2
         #region Move to weaver
         protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, InputState[]> handler)
         {
-            handlers.Add(NetId, handler);
+            handlers[NetId] = handler;
             server.MessageHandler.RegisterHandler<InputMessage>(InputMessageHandler);
         }
         static Dictionary<uint, Action<INetworkPlayer, int, InputState[]>> handlers = new Dictionary<uint, Action<INetworkPlayer, int, InputState[]>>();
