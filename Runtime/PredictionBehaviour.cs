@@ -131,8 +131,8 @@ namespace JamesFrowen.CSP
         void IPredictionBehaviour.CleanUp()
         {
             PredictionTime = null;
-            _client = null;
             _server = null;
+            _client = null;
         }
     }
 

@@ -87,7 +87,7 @@ namespace JamesFrowen.CSP
             foreach (NetworkIdentity obj in Server.World.SpawnedIdentities)
             {
                 if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
-                    behaviour.ServerCleanUp();
+                    behaviour.CleanUp();
             }
             _tickRunner = null;
             serverManager = null;
@@ -123,10 +123,14 @@ namespace JamesFrowen.CSP
 
         void ClientStopped(ClientStoppedReason _)
         {
+            // nothing to clean up if hostmode
+            if (Server.Active)
+                return;
+
             foreach (NetworkIdentity obj in Client.World.SpawnedIdentities)
             {
                 if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
-                    behaviour.ClientCleanUp();
+                    behaviour.CleanUp();
             }
             _tickRunner = null;
             clientManager = null;
