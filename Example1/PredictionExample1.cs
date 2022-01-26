@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP.Example1
 {
-    public class PredictionExample1 : PredictionBehaviour<InputState, ObjectState>, IDebugPredictionBehaviour
+    public class PredictionExample1 : PredictionBehaviour<InputState, ObjectState>, IDebugPredictionLocalCopy
     {
         static readonly ILogger logger = LogFactory.GetLogger<PredictionExample1>();
 
@@ -93,17 +93,17 @@ namespace JamesFrowen.CSP.Example1
         #endregion
 
 
-        #region IDebugPredictionBehaviour
+        #region IDebugPredictionLocalCopy
         PredictionExample1 _copy;
-        IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample1)value; }
+        IDebugPredictionLocalCopy IDebugPredictionLocalCopy.Copy { get => _copy; set => _copy = (PredictionExample1)value; }
 
-        void IDebugPredictionBehaviour.Setup(IPredictionTime time)
+        void IDebugPredictionLocalCopy.Setup(IPredictionTime time)
         {
             PredictionTime = time;
         }
 
         InputState noNetworkPrevious;
-        void IDebugPredictionBehaviour.NoNetworkApply(object _input)
+        void IDebugPredictionLocalCopy.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
             ApplyInputs(input, noNetworkPrevious);
@@ -111,7 +111,6 @@ namespace JamesFrowen.CSP.Example1
             gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }
-        void IDebugPredictionBehaviour.CreateAfterImage(object state, Color color) { }
         #endregion
     }
 

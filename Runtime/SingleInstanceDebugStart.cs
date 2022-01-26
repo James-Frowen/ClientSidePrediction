@@ -133,8 +133,8 @@ namespace JamesFrowen.CSP.Examples
                 {
                     GameObject clone2 = Instantiate(prefab);
                     SceneManager.MoveGameObjectToScene(clone2, clientScene2);
-                    IDebugPredictionBehaviour behaviour2 = clone2.GetComponent<IDebugPredictionBehaviour>();
-                    clone.GetComponent<IDebugPredictionBehaviour>().Copy = behaviour2;
+                    IDebugPredictionLocalCopy behaviour2 = clone2.GetComponent<IDebugPredictionLocalCopy>();
+                    clone.GetComponent<IDebugPredictionLocalCopy>().Copy = behaviour2;
                     behaviour2.Setup(new TickRunner() { TickRate = manager.TickRate });
                     clone2.GetComponent<Renderer>().material.color = Color.blue;
 

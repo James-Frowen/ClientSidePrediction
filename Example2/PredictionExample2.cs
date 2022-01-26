@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace JamesFrowen.CSP.Example2
 {
-    public class PredictionExample2 : PredictionBehaviour<InputState, ObjectState>, IDebugPredictionBehaviour
+    public class PredictionExample2 : PredictionBehaviour<InputState, ObjectState>, IDebugPredictionLocalCopy, IDebugPredictionAfterImage
     {
         public float ResimulateLerp = 0.1f;
         [SerializeField] float speed = 15;
@@ -106,18 +106,17 @@ namespace JamesFrowen.CSP.Example2
         #endregion
 
 
-        #region IDebugPredictionBehaviour
-        bool _afterImage;
+        #region IDebugPredictionLocalCopy
         PredictionExample2 _copy;
-        IDebugPredictionBehaviour IDebugPredictionBehaviour.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
+        IDebugPredictionLocalCopy IDebugPredictionLocalCopy.Copy { get => _copy; set => _copy = (PredictionExample2)value; }
 
-        void IDebugPredictionBehaviour.Setup(IPredictionTime time)
+        void IDebugPredictionLocalCopy.Setup(IPredictionTime time)
         {
             PredictionTime = time;
         }
 
         InputState noNetworkPrevious;
-        void IDebugPredictionBehaviour.NoNetworkApply(object _input)
+        void IDebugPredictionLocalCopy.NoNetworkApply(object _input)
         {
             var input = (InputState)_input;
             ApplyInputs(input, noNetworkPrevious);
@@ -125,9 +124,12 @@ namespace JamesFrowen.CSP.Example2
             gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }
+        #endregion
 
+        #region IDebugPredictionAfterImage
+        [SerializeField] bool _afterImage;
         static Transform AfterImageParent;
-        void IDebugPredictionBehaviour.CreateAfterImage(object _state, Color color)
+        void IDebugPredictionAfterImage.CreateAfterImage(object _state, Color color)
         {
             if (!_afterImage) return;
             if (AfterImageParent == null)

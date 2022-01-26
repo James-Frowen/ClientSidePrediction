@@ -60,12 +60,15 @@ namespace JamesFrowen.CSP
     {
         bool Valid { get; }
     }
-    public interface IDebugPredictionBehaviour
+    public interface IDebugPredictionLocalCopy
     {
-        IDebugPredictionBehaviour Copy { get; set; }
+        IDebugPredictionLocalCopy Copy { get; set; }
 
         void Setup(IPredictionTime time);
         void NoNetworkApply(object input);
+    }
+    public interface IDebugPredictionAfterImage
+    {
         void CreateAfterImage(object state, Color color);
     }
     internal interface IPredictionBehaviour

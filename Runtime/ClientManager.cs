@@ -283,7 +283,7 @@ namespace JamesFrowen.CSP
             // then our last sim step will be (104->105)
             behaviour.ApplyState(lastReceivedState);
 
-            if (behaviour is IDebugPredictionBehaviour debug)
+            if (behaviour is IDebugPredictionAfterImage debug)
                 debug.CreateAfterImage(lastReceivedState, new Color(1f, 0.4f, 0f));
         }
         public void AfterResimulate()
@@ -292,7 +292,7 @@ namespace JamesFrowen.CSP
 
             TState next = behaviour.GatherState();
             behaviour.ResimulationTransition(beforeResimulateState, next);
-            if (behaviour is IDebugPredictionBehaviour debug)
+            if (behaviour is IDebugPredictionAfterImage debug)
                 debug.CreateAfterImage(next, new Color(0, 0.4f, 1f));
             beforeResimulateState = default;
         }
@@ -336,7 +336,7 @@ namespace JamesFrowen.CSP
                 return;
             }
 
-            if (behaviour is IDebugPredictionBehaviour debug)
+            if (behaviour is IDebugPredictionLocalCopy debug)
                 debug.Copy?.NoNetworkApply(input);
 
             pendingInputs.Add(tick, input);
