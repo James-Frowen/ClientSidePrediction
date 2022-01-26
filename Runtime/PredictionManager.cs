@@ -46,6 +46,8 @@ namespace JamesFrowen.CSP
         TickRunner _tickRunner;
         IPredictionSimulation _simulation;
 
+        public TickRunner TickRunner => _tickRunner;
+
         /// <summary>
         /// Used to set custom Simulation or to set default simulation with different local physics scene
         /// </summary>
