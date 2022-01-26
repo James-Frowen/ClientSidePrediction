@@ -111,7 +111,7 @@ namespace JamesFrowen.CSP.Example1
             gameObject.scene.GetPhysicsScene().Simulate(PredictionTime.FixedDeltaTime);
             noNetworkPrevious = input;
         }
-        void IDebugPredictionBehaviour.CreateAfterImage(object state) { }
+        void IDebugPredictionBehaviour.CreateAfterImage(object state, Color color) { }
         #endregion
     }
 

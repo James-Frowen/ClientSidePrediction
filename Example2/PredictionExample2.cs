@@ -127,7 +127,7 @@ namespace JamesFrowen.CSP.Example2
         }
 
         static Transform AfterImageParent;
-        void IDebugPredictionBehaviour.CreateAfterImage(object _state)
+        void IDebugPredictionBehaviour.CreateAfterImage(object _state, Color color)
         {
             if (!_afterImage) return;
             if (AfterImageParent == null)
@@ -139,14 +139,16 @@ namespace JamesFrowen.CSP.Example2
             Material mat = GetComponent<Renderer>().sharedMaterial;
             Renderer renderer = cube.GetComponent<Renderer>();
             renderer.material = Instantiate(mat);
-            _ = changeColorOverTime(cube, renderer.material);
+            _ = changeColorOverTime(cube, renderer.material, color);
             cube.transform.SetPositionAndRotation(state.position, state.rotation);
         }
 
-        private async Task changeColorOverTime(GameObject cube, Material material)
+        private async Task changeColorOverTime(GameObject cube, Material material, Color baseColor)
         {
-            var a = new Color(1f, .4f, 0, 0.4f);
-            var b = new Color(1f, .4f, 0, 0.0f);
+            Color a = baseColor;
+            Color b = baseColor;
+            a.a = 0.4f;
+            b.a = 0f;
 
             float start = Time.time;
             float end = start + 1;

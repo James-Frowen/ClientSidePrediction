@@ -284,7 +284,7 @@ namespace JamesFrowen.CSP
             behaviour.ApplyState(lastReceivedState);
 
             if (behaviour is IDebugPredictionBehaviour debug)
-                debug.CreateAfterImage(lastReceivedState);
+                debug.CreateAfterImage(lastReceivedState, new Color(1f, 0.4f, 0f));
         }
         public void AfterResimulate()
         {
@@ -292,6 +292,8 @@ namespace JamesFrowen.CSP
 
             TState next = behaviour.GatherState();
             behaviour.ResimulationTransition(beforeResimulateState, next);
+            if (behaviour is IDebugPredictionBehaviour debug)
+                debug.CreateAfterImage(next, new Color(0, 0.4f, 1f));
             beforeResimulateState = default;
         }
 

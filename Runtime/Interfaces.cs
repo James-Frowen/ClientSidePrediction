@@ -8,6 +8,7 @@
  *******************************************************/
 
 using Mirage.Serialization;
+using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
@@ -65,7 +66,7 @@ namespace JamesFrowen.CSP
 
         void Setup(IPredictionTime time);
         void NoNetworkApply(object input);
-        void CreateAfterImage(object state);
+        void CreateAfterImage(object state, Color color);
     }
     internal interface IPredictionBehaviour
     {
