@@ -22,13 +22,15 @@ namespace JamesFrowen.CSP.Examples
         public bool ShowClient;
         public bool ShowNoNetwork;
 
+        public SimulationMode simulationMode;
+        public LocalPhysicsMode localPhysicsMode;
         public Color ServerColor = new Color(1, 0, 0, 0.7f);
         public Color ClientColor = Color.green;
 
         private void Awake()
         {
             LogFactory.ReplaceLogHandler(new Handler { inner = Debug.unityLogger });
-            Physics.autoSimulation = false;
+
             if (instance == null)
             {
                 instance = this;
@@ -50,7 +52,7 @@ namespace JamesFrowen.CSP.Examples
                 inner.LogFormat(logType, context, $"[{DateTime.Now:HH:mm:ss.ffff}] {format}", args);
             }
         }
-        static PredictionManager CreateManager(NetworkClient client, NetworkServer server, Scene scene)
+        PredictionManager CreateManager(NetworkClient client, NetworkServer server, Scene scene)
         {
             string nameSuffix = server != null ? "Server" : "Client";
             var go = new GameObject($"PredictionManager {nameSuffix}");
@@ -58,19 +60,25 @@ namespace JamesFrowen.CSP.Examples
             PredictionManager manager = go.AddComponent<PredictionManager>();
             manager.Client = client;
             manager.Server = server;
-            manager.physicsMode = SimulationMode.Local3D;
+            manager.physicsMode = simulationMode;
             SceneManager.MoveGameObjectToScene(go, scene);
             go.SetActive(true);
             return manager;
         }
         private IEnumerator Setup()
         {
+            if (localPhysicsMode == LocalPhysicsMode.Physics2D)
+                Physics2D.autoSimulation = false;
+            if (localPhysicsMode == LocalPhysicsMode.Physics3D)
+                Physics.autoSimulation = false;
+
+
             yield return SetupServer();
             yield return SetupClient();
         }
         private IEnumerator SetupServer()
         {
-            UnityEngine.AsyncOperation serverOp = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });
+            UnityEngine.AsyncOperation serverOp = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = localPhysicsMode });
             yield return serverOp;
             Scene serverScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
 
@@ -101,14 +109,14 @@ namespace JamesFrowen.CSP.Examples
 
         private IEnumerator SetupClient()
         {
-            UnityEngine.AsyncOperation clientOp = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });
+            UnityEngine.AsyncOperation clientOp = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = localPhysicsMode });
             yield return clientOp;
             Scene clientScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
 
             Scene clientScene2 = default;
             if (ShowNoNetwork)
             {
-                UnityEngine.AsyncOperation clientOp2 = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = LocalPhysicsMode.Physics3D });
+                UnityEngine.AsyncOperation clientOp2 = SceneManager.LoadSceneAsync(scene, new LoadSceneParameters { loadSceneMode = LoadSceneMode.Additive, localPhysicsMode = localPhysicsMode });
                 yield return clientOp2;
                 clientScene2 = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
             }
