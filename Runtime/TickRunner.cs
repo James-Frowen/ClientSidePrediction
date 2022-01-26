@@ -30,7 +30,18 @@ namespace JamesFrowen.CSP
         /// </summary>
         int lastInvokedTick;
 
+        /// <summary>
+        /// Make tick update event, Called before <see cref="onTick"/>
+        /// </summary>
+        public event OnTick onPreTick;
+        /// <summary>
+        /// Make tick update event
+        /// </summary>
         public event OnTick onTick;
+        /// <summary>
+        /// Late tick update event, Called after <see cref="onTick"/>
+        /// </summary>
+        public event OnTick onPostTick;
 
         public TickRunner()
         {
@@ -76,7 +87,9 @@ namespace JamesFrowen.CSP
                 // todo what if we jump back, do we not need to resimulate?
                 if (_tick > lastInvokedTick)
                 {
+                    onPreTick?.Invoke(_tick);
                     onTick?.Invoke(_tick);
+                    onPostTick?.Invoke(_tick);
                     lastInvokedTick = _tick;
                 }
             }
@@ -135,7 +148,8 @@ namespace JamesFrowen.CSP
             skipAheadThreshold = skipThreshold;
 
             // speed up/slow down up by 0.01 if after/behind
-            fastScale = normalScale + timeScaleModifier;
+            // we never want to be behind so catch up faster
+            fastScale = normalScale + (timeScaleModifier * 5);
             slowScale = normalScale - timeScaleModifier;
 
             diffAvg = new ExponentialMovingAverage(movingAverageCount);
