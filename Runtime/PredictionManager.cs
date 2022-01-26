@@ -124,7 +124,7 @@ namespace JamesFrowen.CSP
         void ClientStopped(ClientStoppedReason _)
         {
             // nothing to clean up if hostmode
-            if (Server.Active)
+            if (Server != null && Server.Active)
                 return;
 
             foreach (NetworkIdentity obj in Client.World.SpawnedIdentities)
