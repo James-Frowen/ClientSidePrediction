@@ -38,6 +38,8 @@ namespace JamesFrowen.CSP
 
         [Header("Tick Settings")]
         [SerializeField] internal float TickRate = 50;
+        [Tooltip("How Often to send pings, used to make sure inputs are delay by correct ammount")]
+        [SerializeField] private float PingInterval = 0.2f;
         [SerializeField] ClientTickSettings ClientTickSettings = new ClientTickSettings();
 
         ClientManager clientManager;
@@ -108,6 +110,8 @@ namespace JamesFrowen.CSP
             }
             else
             {
+                Client.World.Time.PingInterval = PingInterval;
+
                 var clientRunner = new ClientTickRunner(Client.World.Time,
                     diffThreshold: ClientTickSettings.diffThreshold,
                     timeScaleModifier: ClientTickSettings.timeScaleModifier,
