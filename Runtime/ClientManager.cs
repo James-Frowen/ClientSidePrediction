@@ -203,8 +203,9 @@ namespace JamesFrowen.CSP
 
             if (unappliedTick)
             {
+                // from +1 because we receive N, so we need to simulate n+1
                 // sim up to N-1, we do N below when we get new inputs
-                Resimulate(lastReceivedTick, tick - 1);
+                Resimulate(lastReceivedTick + 1, tick - 1);
                 unappliedTick = false;
             }
 
