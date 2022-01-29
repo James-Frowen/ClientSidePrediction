@@ -68,7 +68,13 @@ namespace JamesFrowen.CSP.Examples
         private IEnumerator Setup()
         {
             if (localPhysicsMode == LocalPhysicsMode.Physics2D)
+            {
+#if UNITY_2020_1_OR_NEWER
+                Physics2D.simulationMode = SimulationMode2D.Script;
+#else
                 Physics2D.autoSimulation = false;
+#endif
+            }
             if (localPhysicsMode == LocalPhysicsMode.Physics3D)
                 Physics.autoSimulation = false;
 
