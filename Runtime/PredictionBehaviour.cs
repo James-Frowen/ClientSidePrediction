@@ -9,7 +9,6 @@
 
 using System;
 using Mirage;
-using Mirage.Serialization;
 
 namespace JamesFrowen.CSP
 {
@@ -21,28 +20,26 @@ namespace JamesFrowen.CSP
     /// Base class for Client side prediction for objects without input, like physics objects in a scene.
     /// </summary>
     /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TState> : PredictionBehaviourBase<NoInputs, TState>, IPredictionBehaviour
+    public abstract class PredictionBehaviour<TState> : PredictionBehaviourBase<NoInputs, TState>
     {
         public sealed override bool HasInput => false;
         public sealed override NoInputs GetInput() => throw new NotSupportedException();
         public sealed override NoInputs MissingInput(NoInputs previous, int previousTick, int currentTick) => throw new NotSupportedException();
         public sealed override void ApplyInputs(NoInputs input, NoInputs previous) => throw new NotSupportedException();
-        protected sealed override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, NoInputs[]> handler) => throw new NotSupportedException();
-        public override void PackInputMessage(NetworkWriter writer, int tick, NoInputs[] inputs) => throw new NotSupportedException();
     }
 
     /// <summary>
     /// Base class for Client side prediction for objects with input, like player objects with movement.
     /// </summary>
     /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState>, IPredictionBehaviour where TInput : IInputState
+    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState> where TInput : IInputState
     {
         public sealed override bool HasInput => true;
     }
 
     public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
     {
-        ClientController<TInput, TState> _client;
+     ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
 
         // annoying cs stuff to have internal property and interface
@@ -106,21 +103,11 @@ namespace JamesFrowen.CSP
         /// <param name="after">state after resimulation</param>
         public abstract void ResimulationTransition(TState before, TState after);
 
-        // todo generate by weaver
-        /// <summary>todo generate by weaver, Copy code from examples for now</summary>
-        protected abstract void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, TInput[]> handler);
-        /// <summary>todo generate by weaver, Copy code from examples for now</summary>
-        public abstract void PackInputMessage(NetworkWriter writer, int tick, TInput[] inputs);
 
         void IPredictionBehaviour.ServerSetup(IPredictionTime time)
         {
             PredictionTime = time;
             _server = new ServerController<TInput, TState>(this, Helper.BufferSize);
-
-            // todo why doesn't IServer have message handler
-            var networkServer = ((NetworkServer)Identity.Server);
-            if (this.UseInputs())
-                RegisterInputMessage(networkServer, (player, tick, inputs) => _server.OnReceiveInput(player, tick, inputs));
         }
         void IPredictionBehaviour.ClientSetup(IPredictionTime time)
         {

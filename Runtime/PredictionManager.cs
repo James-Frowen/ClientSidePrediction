@@ -84,6 +84,7 @@ namespace JamesFrowen.CSP
             IReadOnlyCollection<INetworkPlayer> players = Server.Players;
 
             serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
+            _ = new InputMessageHandler(Server);
         }
 
         void ServerStopped()
@@ -145,6 +146,38 @@ namespace JamesFrowen.CSP
         private void Update()
         {
             _tickRunner?.OnUpdate();
+        }
+    }
+
+    internal class InputMessageHandler
+    {
+        ILogger logger = LogFactory.GetLogger<InputMessageHandler>();
+
+        private NetworkServer server;
+
+        public InputMessageHandler(NetworkServer server)
+        {
+            server.MessageHandler.RegisterHandler<InputMessage>(HandleMessage);
+        }
+
+        private void HandleMessage(INetworkPlayer player, InputMessage message)
+        {
+            if (!server.World.TryGetIdentity(message.netId, out NetworkIdentity identity))
+            {
+                if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling ServerRpc message [netId={message.netId}]");
+                return;
+            }
+
+            if (player != identity.Owner)
+                throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
+
+            if (!identity.TryGetComponent(out IPredictionBehaviour behaviour))
+            {
+                if (logger.WarnEnabled()) logger.LogWarning($"Identity [netId={message.netId}] did not have a PredictionBehaviour to receive inputs");
+                return;
+            }
+
+            behaviour.ServerController.OnReceiveInput(message.tick, message.payload);
         }
     }
 }

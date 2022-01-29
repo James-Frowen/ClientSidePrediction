@@ -7,6 +7,7 @@
  * permission of James Frowen
  *******************************************************/
 
+using System;
 using Mirage.Serialization;
 using UnityEngine;
 
@@ -55,6 +56,7 @@ namespace JamesFrowen.CSP
         void WriteState(NetworkWriter writer);
         void ReceiveHostInput<TInput>(int tick, TInput _input) where TInput : IInputState;
         void SetHostMode();
+        void OnReceiveInput(int tick, ArraySegment<byte> payload);
     }
     public interface IInputState
     {

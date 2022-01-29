@@ -7,10 +7,8 @@
  * permission of James Frowen
  *******************************************************/
 
-using System;
 using Mirage;
 using Mirage.Logging;
-using Mirage.Serialization;
 using UnityEngine;
 
 namespace JamesFrowen.CSP.Example1
@@ -75,23 +73,6 @@ namespace JamesFrowen.CSP.Example1
                 jump: Input.GetKey(KeyCode.Space)
             );
         }
-
-        #region Move to weaver
-        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, InputState[]> handler)
-        {
-            server.MessageHandler.RegisterHandler<InputMessage>((player, msg) => handler.Invoke(player, msg.tick, msg.inputs));
-        }
-        public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
-        {
-            var msg = new InputMessage
-            {
-                tick = tick,
-                inputs = inputs,
-            };
-            MessagePacker.Pack(msg, writer);
-        }
-        #endregion
-
 
         #region IDebugPredictionLocalCopy
         PredictionExample1 _copy;

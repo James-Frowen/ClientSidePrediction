@@ -139,43 +139,51 @@ namespace JamesFrowen.CSP
             writer.Write(state);
         }
 
-        public void OnReceiveInput(INetworkPlayer player, int tick, TInput[] newInputs)
+        public void OnReceiveInput(int tick, ArraySegment<byte> payload)
         {
-            if (player != behaviour.Owner)
-                throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
-
-            // if lastTick is before last sim, then it is late and we can't use
-            if (tick < lastSim)
-            {
-                // log at start, but warn after
-                if (lastReceived == NEVER_RECEIVED)
-                {
-                    if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
-                }
-                else
-                {
-                    if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
-                }
+            if (!ValidateInputTick(tick))
                 return;
-            }
-            else
-            {
-                if (logger.LogEnabled()) logger.Log($"received inputs for {tick}. length: {newInputs.Length}, lastSim:{lastSim}. early by { tick - lastSim}");
-            }
 
-            for (int i = 0; i < newInputs.Length; i++)
+            using (PooledNetworkReader reader = NetworkReaderPool.GetReader(payload))
             {
-                int t = tick - i;
-                TInput input = newInputs[i];
-                // if new, and after last sim
-                if (t > lastReceived && t > lastSim)
+                int inputTick = tick;
+                while (reader.CanReadBytes(1))
                 {
-                    Debug.Assert(input.Valid);
-                    SetInput(t, input);
+                    TInput input = reader.Read<TInput>();
+                    // if new, and after last sim
+                    if (inputTick > lastReceived && inputTick > lastSim)
+                    {
+                        Debug.Assert(input.Valid);
+                        SetInput(inputTick, input);
+                    }
+
+                    // inputs written in reverse order, so --
+                    inputTick--;
                 }
             }
 
             lastReceived = Mathf.Max(lastReceived, tick);
+        }
+
+        private bool ValidateInputTick(int tick)
+        {
+            // if lastTick is before last sim, then it is late and we can't use
+            if (tick >= lastSim)
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs for {tick}. lastSim:{lastSim}. early by {tick - lastSim}");
+                return true;
+            }
+
+            // log at start, but warn after
+            if (lastReceived == NEVER_RECEIVED)
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
+            }
+            else
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
+            }
+            return false;
         }
 
         void IServerController.Tick(int tick)

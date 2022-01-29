@@ -19,6 +19,14 @@ namespace JamesFrowen.CSP
         public ArraySegment<byte> state;
     }
 
+    [NetworkMessage]
+    public struct InputMessage
+    {
+        public uint netId;
+        public int tick;
+        public ArraySegment<byte> payload;
+    }
+
     public enum SimulationMode
     {
         Physics3D,

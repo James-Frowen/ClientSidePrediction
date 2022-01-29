@@ -7,8 +7,6 @@
  * permission of James Frowen
  *******************************************************/
 
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Mirage;
 using Mirage.Logging;
@@ -81,29 +79,6 @@ namespace JamesFrowen.CSP.Example2
                 vertical: (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0)
             );
         }
-
-        #region Move to weaver
-        protected override void RegisterInputMessage(NetworkServer server, Action<INetworkPlayer, int, InputState[]> handler)
-        {
-            handlers[NetId] = handler;
-            server.MessageHandler.RegisterHandler<InputMessage>(InputMessageHandler);
-        }
-        static Dictionary<uint, Action<INetworkPlayer, int, InputState[]>> handlers = new Dictionary<uint, Action<INetworkPlayer, int, InputState[]>>();
-        static void InputMessageHandler(INetworkPlayer player, InputMessage msg)
-        {
-            handlers[msg.netId].Invoke(player, msg.tick, msg.inputs);
-        }
-        public override void PackInputMessage(NetworkWriter writer, int tick, InputState[] inputs)
-        {
-            var msg = new InputMessage
-            {
-                netId = NetId,
-                tick = tick,
-                inputs = inputs,
-            };
-            MessagePacker.Pack(msg, writer);
-        }
-        #endregion
 
 
         #region IDebugPredictionLocalCopy
