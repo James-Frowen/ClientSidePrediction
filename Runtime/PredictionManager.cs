@@ -153,16 +153,17 @@ namespace JamesFrowen.CSP
     {
         ILogger logger = LogFactory.GetLogger<InputMessageHandler>();
 
-        private NetworkServer server;
+        readonly NetworkWorld world;
 
         public InputMessageHandler(NetworkServer server)
         {
+            world = server.World;
             server.MessageHandler.RegisterHandler<InputMessage>(HandleMessage);
         }
 
         private void HandleMessage(INetworkPlayer player, InputMessage message)
         {
-            if (!server.World.TryGetIdentity(message.netId, out NetworkIdentity identity))
+            if (!world.TryGetIdentity(message.netId, out NetworkIdentity identity))
             {
                 if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling ServerRpc message [netId={message.netId}]");
                 return;
