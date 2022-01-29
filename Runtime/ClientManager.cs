@@ -362,25 +362,30 @@ namespace JamesFrowen.CSP
             {
                 writeBuffer[tick - pending.Key] = pending.Value;
             }
+
             int length = pendingInputs.Count;
 
-            IConnection conn = behaviour.Client.Player.Connection;
+            if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {length}");
 
-            using (PooledNetworkWriter msgWriter = NetworkWriterPool.GetWriter(), payloadWriter = NetworkWriterPool.GetWriter())
+            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
             {
-                for (int i = 0; i < pendingInputs.Count; i++)
+                for (int i = 0; i < length; i++)
                 {
-                    payloadWriter.Write(writeBuffer[i]);
+                    writer.Write(writeBuffer[i]);
                 }
 
-                msgWriter.WritePackedUInt32(behaviour.NetId);
-                msgWriter.WritePackedInt32(tick);
-                msgWriter.WriteBytesAndSizeSegment(payloadWriter.ToArraySegment());
+                var message = new InputMessage
+                {
+                    netId = behaviour.NetId,
+                    tick = tick,
+                    payload = writer.ToArraySegment(),
+                };
 
-                if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {length}");
-                var msgSegment = msgWriter.ToArraySegment();
+
                 INotifyCallBack token = NotifyToken.GetToken(pendingInputs, tick, length);
-                conn.SendNotify(msgSegment, token);
+
+                INetworkClient client = behaviour.Client;
+                client.Send(message, token);
             }
         }
 
