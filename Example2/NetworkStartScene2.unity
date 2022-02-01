@@ -317,6 +317,8 @@ MonoBehaviour:
   ShowServer: 1
   ShowClient: 1
   ShowNoNetwork: 0
+  simulationMode: 2
+  localPhysicsMode: 2
   ServerColor: {r: 1, g: 0, b: 0, a: 0.5019608}
   ClientColor: {r: 0, g: 1, b: 0, a: 1}
 --- !u!114 &1143117128
