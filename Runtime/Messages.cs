@@ -22,7 +22,7 @@ namespace JamesFrowen.CSP
     [NetworkMessage]
     public struct InputMessage
     {
-        public uint netId;
+        public NetworkBehaviour behaviour;
         public int tick;
         public ArraySegment<byte> payload;
     }

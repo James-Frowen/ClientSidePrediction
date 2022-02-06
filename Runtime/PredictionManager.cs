@@ -153,30 +153,26 @@ namespace JamesFrowen.CSP
     {
         ILogger logger = LogFactory.GetLogger<InputMessageHandler>();
 
-        readonly NetworkWorld world;
-
         public InputMessageHandler(NetworkServer server)
         {
-            world = server.World;
             server.MessageHandler.RegisterHandler<InputMessage>(HandleMessage);
         }
 
         private void HandleMessage(INetworkPlayer player, InputMessage message)
         {
-            if (!world.TryGetIdentity(message.netId, out NetworkIdentity identity))
+            NetworkBehaviour networkBehaviour = message.behaviour;
+            if (networkBehaviour == null)
             {
-                if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling ServerRpc message [netId={message.netId}]");
+                if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling InputMessage message");
                 return;
             }
 
-            if (player != identity.Owner)
+            if (player != networkBehaviour.Owner)
                 throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
 
-            if (!identity.TryGetComponent(out IPredictionBehaviour behaviour))
-            {
-                if (logger.WarnEnabled()) logger.LogWarning($"Identity [netId={message.netId}] did not have a PredictionBehaviour to receive inputs");
-                return;
-            }
+            if (!(networkBehaviour is IPredictionBehaviour behaviour))
+                throw new InvalidOperationException($"Networkbehaviour({networkBehaviour.NetId}, {networkBehaviour.ComponentIndex}) was not a IPredictionBehaviour");
+
 
             behaviour.ServerController.OnReceiveInput(message.tick, message.payload);
         }

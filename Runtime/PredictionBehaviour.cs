@@ -39,7 +39,7 @@ namespace JamesFrowen.CSP
 
     public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
     {
-     ClientController<TInput, TState> _client;
+        ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
 
         // annoying cs stuff to have internal property and interface

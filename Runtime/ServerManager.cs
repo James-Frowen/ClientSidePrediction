@@ -24,7 +24,7 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerManager");
 
-        readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
+        readonly Dictionary<NetworkBehaviour, IPredictionBehaviour> behaviours = new Dictionary<NetworkBehaviour, IPredictionBehaviour>();
         readonly IEnumerable<INetworkPlayer> players;
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
@@ -33,7 +33,7 @@ namespace JamesFrowen.CSP
         internal void SetHostMode()
         {
             hostMode = true;
-            foreach (KeyValuePair<uint, IPredictionBehaviour> behaviour in behaviours)
+            foreach (KeyValuePair<NetworkBehaviour, IPredictionBehaviour> behaviour in behaviours)
             {
                 behaviour.Value.ServerController.SetHostMode();
             }
@@ -58,17 +58,27 @@ namespace JamesFrowen.CSP
 
         private void OnSpawn(NetworkIdentity identity)
         {
-            if (identity.TryGetComponent(out IPredictionBehaviour behaviour))
+            foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
             {
-                behaviours.Add(identity.NetId, behaviour);
-                behaviour.ServerSetup(time);
-                if (hostMode)
-                    behaviour.ServerController.SetHostMode();
+                // todo is using NetworkBehaviour as key ok? or does this need optimizing
+                if (networkBehaviour is IPredictionBehaviour behaviour)
+                {
+                    behaviours.Add(networkBehaviour, behaviour);
+                    behaviour.ServerSetup(time);
+                    if (hostMode)
+                        behaviour.ServerController.SetHostMode();
+                }
             }
         }
         private void OnUnspawn(NetworkIdentity identity)
         {
-            behaviours.Remove(identity.NetId);
+            foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
+            {
+                if (networkBehaviour is IPredictionBehaviour)
+                {
+                    behaviours.Remove(networkBehaviour);
+                }
+            }
         }
 
         public void Tick(int tick)
@@ -84,9 +94,10 @@ namespace JamesFrowen.CSP
             var msg = new WorldState() { tick = tick };
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
             {
-                foreach (KeyValuePair<uint, IPredictionBehaviour> kvp in behaviours)
+                foreach (KeyValuePair<NetworkBehaviour, IPredictionBehaviour> kvp in behaviours)
                 {
-                    writer.WritePackedUInt32(kvp.Key);
+                    writer.WriteNetworkBehaviour(kvp.Key);
+
                     IPredictionBehaviour behaviour = kvp.Value;
                     behaviour.ServerController.WriteState(writer);
                 }

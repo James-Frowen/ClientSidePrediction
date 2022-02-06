@@ -37,41 +37,19 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientManager");
 
-        readonly Dictionary<uint, IPredictionBehaviour> behaviours = new Dictionary<uint, IPredictionBehaviour>();
+        readonly Dictionary<NetworkBehaviour, IPredictionBehaviour> behaviours = new Dictionary<NetworkBehaviour, IPredictionBehaviour>();
 
-        readonly bool hostMode;
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
         readonly ClientTickRunner clientTickRunner;
         readonly ClientTime clientTime;
+        readonly NetworkWorld world;
 
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
 
-        public ClientManager(bool hostMode, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world, MessageHandler messageHandler)
-        {
-            throw new NotSupportedException();
-            //if (!hostMode)
-            //    throw new InvalidOperationException("Wrong constructor used for non-host mode");
-
-            //this.hostMode = hostMode;
-            //this.simulation = simulation;
-            //time = tickRunner;
-            //tickRunner.onTick += Tick;
-
-            //messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
-            //world.onSpawn += OnSpawn;
-            //world.onUnspawn += OnUnspawn;
-
-            //// add existing items
-            //foreach (NetworkIdentity item in world.SpawnedIdentities)
-            //{
-            //    OnSpawn(item);
-            //}
-        }
         public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, MessageHandler messageHandler)
         {
-            hostMode = false;
             this.simulation = simulation;
             time = clientTickRunner;
             this.clientTickRunner = clientTickRunner;
@@ -80,6 +58,7 @@ namespace JamesFrowen.CSP
             clientTime = new ClientTime(time.FixedDeltaTime);
 
             messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
+            this.world = world;
             world.onSpawn += OnSpawn;
             world.onUnspawn += OnUnspawn;
 
@@ -90,41 +69,38 @@ namespace JamesFrowen.CSP
             }
         }
 
-        void ThrowIfHostMode()
-        {
-            if (hostMode)
-                throw new InvalidOperationException("Should not be called in host mode");
-        }
-
         private void OnTickSkip()
         {
-            ThrowIfHostMode();
-
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.OnTickSkip();
         }
 
         public void OnSpawn(NetworkIdentity identity)
         {
-            if (identity.TryGetComponent(out IPredictionBehaviour behaviour))
+            foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
             {
-                if (logger.LogEnabled()) logger.Log($"Spawned {identity.NetId} {behaviour.GetType()}");
-                behaviours.Add(identity.NetId, behaviour);
-                behaviour.ClientSetup(clientTime);
+                if (networkBehaviour is IPredictionBehaviour behaviour)
+                {
+                    if (logger.LogEnabled()) logger.Log($"Spawned ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex}) {behaviour.GetType()}");
+                    logger.LogWarning($"Spawned ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex}) {behaviour.GetType()}");
+                    behaviours.Add(networkBehaviour, behaviour);
+                    behaviour.ClientSetup(clientTime);
+                }
             }
         }
         public void OnUnspawn(NetworkIdentity identity)
         {
-            behaviours.Remove(identity.NetId);
+            foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
+            {
+                if (networkBehaviour is IPredictionBehaviour behaviour)
+                {
+                    behaviours.Remove(networkBehaviour);
+                }
+            }
         }
 
         void ReceiveWorldState(INetworkPlayer _, WorldState state)
         {
-            // do nothing with state in hostmode
-            // because server and client objects are the same
-            if (hostMode)
-                return;
-
             ReceiveState(state.tick, state.state);
             clientTickRunner.OnMessage(state.tick);
         }
@@ -141,18 +117,24 @@ namespace JamesFrowen.CSP
             lastReceivedTick = tick;
             using (PooledNetworkReader reader = NetworkReaderPool.GetReader(statePayload))
             {
+                reader.ObjectLocator = world;
+
                 while (reader.CanReadBytes(1))
                 {
-                    uint netId = reader.ReadPackedUInt32();
-                    if (!behaviours.ContainsKey(netId))
+                    NetworkBehaviour networkBehaviour = reader.ReadNetworkBehaviour();
+                    if (networkBehaviour == null)
                     {
                         // todo fix spawning 
                         // this breaks if state message is received before Mirage's spawn messages
-                        logger.LogWarning($"(TODO FIX THIS) No key for {netId}, Stoping ReceiveState");
+                        logger.LogWarning($"(TODO FIX THIS) had null networkbehaviour, Stoping ReceiveState");
                         return;
                     }
 
-                    IPredictionBehaviour behaviour = behaviours[netId];
+                    Debug.Assert(behaviours.ContainsKey(networkBehaviour));
+                    Debug.Assert(networkBehaviour is IPredictionBehaviour);
+
+                    var behaviour = (IPredictionBehaviour)networkBehaviour;
+                    Debug.Assert(behaviour.ClientController != null, $"Null ClientController for ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex})");
                     behaviour.ClientController.ReceiveState(tick, reader);
                 }
             }
@@ -160,8 +142,6 @@ namespace JamesFrowen.CSP
 
         void Resimulate(int from, int to)
         {
-            ThrowIfHostMode();
-
             logger.Log($"Resimulate from {from} to {to}");
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
@@ -183,8 +163,6 @@ namespace JamesFrowen.CSP
 
         void Simulate(int tick)
         {
-            ThrowIfHostMode();
-
             clientTime.Tick = tick;
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
@@ -194,9 +172,6 @@ namespace JamesFrowen.CSP
 
         internal void Tick(int tick)
         {
-            // do nothing in host mode, server controller is in charge
-            if (hostMode) return;
-
             // set lastSim to +1, so if we receive new snapshot, then we sim up to 106 again
             // we only want to step forward 1 tick at a time so we collect inputs, and sim correctly
             // todo: what happens if we do 2 at once, is that really a problem?
@@ -376,7 +351,7 @@ namespace JamesFrowen.CSP
 
                 var message = new InputMessage
                 {
-                    netId = behaviour.NetId,
+                    behaviour = behaviour,
                     tick = tick,
                     payload = writer.ToArraySegment(),
                 };
