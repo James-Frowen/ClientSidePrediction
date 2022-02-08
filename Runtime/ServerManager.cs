@@ -125,10 +125,8 @@ namespace JamesFrowen.CSP
         /// <summary>Clears Previous inputs for tick (eg tick =100 clears tick 99's inputs</summary>
         void ClearPreviousInput(int tick) => SetInput(tick - 1, default);
 
-        int lastReceived = NEVER_RECEIVED;
+        int lastReceived = Helper.NO_VALUE;
         (int tick, TInput input) lastValidInput;
-        const int NEVER_RECEIVED = -1;
-
         int lastSim;
 
         bool hostMode;
@@ -186,7 +184,7 @@ namespace JamesFrowen.CSP
             }
 
             // log at start, but warn after
-            if (lastReceived == NEVER_RECEIVED)
+            if (lastReceived == Helper.NO_VALUE)
             {
                 if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
             }
@@ -226,7 +224,7 @@ namespace JamesFrowen.CSP
             previous = default;
             // dont need to do anything till first is received
             // skip check hostmode, there are always inputs for hostmode
-            if (!hostMode && lastReceived == NEVER_RECEIVED)
+            if (!hostMode && lastReceived == Helper.NO_VALUE)
                 return;
 
             input = getValidInput(tick);

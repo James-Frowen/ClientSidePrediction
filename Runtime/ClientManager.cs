@@ -217,7 +217,7 @@ namespace JamesFrowen.CSP
         private int lastInputTick;
 
         const int maxInputPerPacket = 8;
-        private int ackedInput;
+        private int ackedInput = Helper.NO_VALUE;
 
         public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
@@ -326,6 +326,12 @@ namespace JamesFrowen.CSP
 
             if (behaviour is IDebugPredictionLocalCopy debug)
                 debug.Copy?.NoNetworkApply(GetInput(tick));
+
+            // no value means this is first send
+            // for this case we can just send the acked value to tick-1 so that only new input is sent
+            // next frame it will send this and next frames inputs like it should normally
+            if (ackedInput == Helper.NO_VALUE)
+                ackedInput = tick - 1;
 
             if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {tick - ackedInput}");
 
