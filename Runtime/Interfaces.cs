@@ -60,7 +60,10 @@ namespace JamesFrowen.CSP
     }
     public interface IInputState
     {
-        bool Valid { get; }
+        // todo use nullable instead of bool here
+        // we just need valid to know if server received previous input
+        // we also need to clear old valid because ring buffer
+        bool Valid { get; set; }
     }
     public interface IDebugPredictionLocalCopy
     {

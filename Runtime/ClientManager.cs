@@ -82,7 +82,6 @@ namespace JamesFrowen.CSP
                 if (networkBehaviour is IPredictionBehaviour behaviour)
                 {
                     if (logger.LogEnabled()) logger.Log($"Spawned ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex}) {behaviour.GetType()}");
-                    logger.LogWarning($"Spawned ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex}) {behaviour.GetType()}");
                     behaviours.Add(networkBehaviour, behaviour);
                     behaviour.ClientSetup(clientTime);
                 }
@@ -305,6 +304,7 @@ namespace JamesFrowen.CSP
             lastInputTick = tick;
 
             TInput thisTickInput = behaviour.GetInput();
+            thisTickInput.Valid = true;
             SetInput(tick, thisTickInput);
             SendInput(tick);
         }
@@ -312,8 +312,8 @@ namespace JamesFrowen.CSP
         public void OnTickSkip()
         {
             // clear inputs, start a fresh
-            // to clear we just say that all old inputs have been acked, then next send will just be new one
-            ackedInput = lastInputTick;
+            // set to no value so SendInput can handle it as if there are no acks
+            ackedInput = Helper.NO_VALUE;
         }
 
         void SendInput(int tick)
@@ -341,9 +341,12 @@ namespace JamesFrowen.CSP
             {
                 int length = 0;
                 // tick -> ackedInput+1
-                for (int t = tick; t > ackedInput || length < maxInputPerPacket; t--, length++)
+                // must be `t` greater than ack, AND less than max
+                for (int t = tick; t > ackedInput && length < maxInputPerPacket; t--, length++)
                 {
                     TInput input = GetInput(t);
+
+                    Debug.Assert(input.Valid, $"Client Sending invalid input, tick:{t}");
                     writer.Write(input);
                 }
 
@@ -353,7 +356,6 @@ namespace JamesFrowen.CSP
                     tick = tick,
                     payload = writer.ToArraySegment(),
                 };
-
 
                 INotifyCallBack token = NotifyToken.GetToken(this, tick);
 

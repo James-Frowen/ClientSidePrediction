@@ -159,10 +159,10 @@ namespace JamesFrowen.CSP
                 while (reader.CanReadBytes(1))
                 {
                     TInput input = reader.Read<TInput>();
+                    input.Valid = true;
                     // if new, and after last sim
                     if (inputTick > lastReceived && inputTick > lastSim)
                     {
-                        Debug.Assert(input.Valid);
                         SetInput(inputTick, input);
                     }
 

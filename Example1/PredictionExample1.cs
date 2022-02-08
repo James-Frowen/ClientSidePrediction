@@ -98,9 +98,8 @@ namespace JamesFrowen.CSP.Example1
     [NetworkMessage]
     public struct InputState : IInputState
     {
-        public bool Valid => _valid;
+        public bool Valid { get; set; }
 
-        public readonly bool _valid;
         public readonly bool jump;
         public readonly bool left;
         public readonly bool right;
@@ -110,7 +109,7 @@ namespace JamesFrowen.CSP.Example1
             this.jump = jump;
             this.left = left;
             this.right = right;
-            _valid = true;
+            Valid = true;
         }
 
         public int Horizontal => (right ? 1 : 0) - (left ? 1 : 0);

@@ -12,9 +12,13 @@ using Mirage;
 
 namespace JamesFrowen.CSP
 {
+    /// <summary>
+    /// Placeholder input for non-input class
+    /// Use never be used by scripts
+    /// </summary>
     public struct NoInputs : IInputState
     {
-        public bool Valid => throw new NotImplementedException();
+        public bool Valid { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
     }
     /// <summary>
     /// Base class for Client side prediction for objects without input, like physics objects in a scene.
