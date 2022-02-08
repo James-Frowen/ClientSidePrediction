@@ -212,14 +212,12 @@ namespace JamesFrowen.CSP
 
         int lastReceivedTick = Helper.NO_VALUE;
         TState lastReceivedState;
+        TState beforeResimulateState;
 
         private int lastInputTick;
-        /// <summary>
-        /// cached array for pending inputs to be written to before being sent
-        /// </summary>
-        readonly TInput[] writeBuffer;
-        readonly Dictionary<int, TInput> pendingInputs = new Dictionary<int, TInput>();
-        private TState beforeResimulateState;
+
+        const int maxInputPerPacket = 8;
+        private int ackedInput;
 
         public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
@@ -227,7 +225,6 @@ namespace JamesFrowen.CSP
             if (behaviour.UseInputs())
             {
                 _inputBuffer = new TInput[bufferSize];
-                writeBuffer = new TInput[bufferSize];
             }
         }
 
@@ -309,44 +306,39 @@ namespace JamesFrowen.CSP
 
             TInput thisTickInput = behaviour.GetInput();
             SetInput(tick, thisTickInput);
-            SendInput(tick, thisTickInput);
+            SendInput(tick);
         }
 
         public void OnTickSkip()
         {
             // clear inputs, start a fresh
-            pendingInputs.Clear();
+            // to clear we just say that all old inputs have been acked, then next send will just be new one
+            ackedInput = lastInputTick;
         }
 
-        void SendInput(int tick, TInput input)
+        void SendInput(int tick)
         {
             if (behaviour.IsLocalClient)
             {
-                behaviour.ServerController.ReceiveHostInput(tick, input);
+                behaviour.ServerController.ReceiveHostInput(tick, GetInput(tick));
                 return;
             }
 
             if (behaviour is IDebugPredictionLocalCopy debug)
-                debug.Copy?.NoNetworkApply(input);
+                debug.Copy?.NoNetworkApply(GetInput(tick));
 
-            pendingInputs.Add(tick, input);
+            if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {tick - ackedInput}");
 
-            // write to buffer using tick/key so they are in correct order
-            // note: dictionary may not be in order, but tick-key will be
-            foreach (KeyValuePair<int, TInput> pending in pendingInputs)
-            {
-                writeBuffer[tick - pending.Key] = pending.Value;
-            }
-
-            int length = pendingInputs.Count;
-
-            if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {length}");
+            Debug.Assert(tick > ackedInput, "new input should not have been acked before it was sent");
 
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
             {
-                for (int i = 0; i < length; i++)
+                int length = 0;
+                // tick -> ackedInput+1
+                for (int t = tick; t > ackedInput || length < maxInputPerPacket; t--, length++)
                 {
-                    writer.Write(writeBuffer[i]);
+                    TInput input = GetInput(t);
+                    writer.Write(input);
                 }
 
                 var message = new InputMessage
@@ -357,7 +349,7 @@ namespace JamesFrowen.CSP
                 };
 
 
-                INotifyCallBack token = NotifyToken.GetToken(pendingInputs, tick, length);
+                INotifyCallBack token = NotifyToken.GetToken(this, tick);
 
                 INetworkClient client = behaviour.Client;
                 client.Send(message, token);
@@ -367,26 +359,21 @@ namespace JamesFrowen.CSP
         class NotifyToken : INotifyCallBack
         {
             static Pool<NotifyToken> pool = new Pool<NotifyToken>((_, __) => new NotifyToken(), 0, 10, Helper.BufferSize, logger);
-            public static INotifyCallBack GetToken(Dictionary<int, TInput> pendingInputs, int tick, int length)
+            public static INotifyCallBack GetToken(ClientController<TInput, TState> controller, int tick)
             {
                 NotifyToken token = pool.Take();
-                token.pendingInputs = pendingInputs;
+                token.controller = controller;
                 token.tick = tick;
-                token.length = length;
                 return token;
             }
 
-            Dictionary<int, TInput> pendingInputs;
+            ClientController<TInput, TState> controller;
             int tick;
-            int length;
 
             public void OnDelivered()
             {
-                for (int i = 0; i < length; i++)
-                {
-                    // once message is acked, remove all inputs starting at the tick
-                    pendingInputs.Remove(tick - i);
-                }
+                // take highest value of current ack and new ack
+                controller.ackedInput = Math.Max(controller.ackedInput, tick);
                 pool.Put(this);
             }
 
