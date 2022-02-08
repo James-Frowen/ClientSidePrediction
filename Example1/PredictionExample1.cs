@@ -96,13 +96,6 @@ namespace JamesFrowen.CSP.Example1
     }
 
     [NetworkMessage]
-    public struct InputMessage
-    {
-        public int tick;
-        public InputState[] inputs;
-    }
-
-    [NetworkMessage]
     public struct InputState : IInputState
     {
         public bool Valid => _valid;
