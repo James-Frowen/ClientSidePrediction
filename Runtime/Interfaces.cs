@@ -17,6 +17,7 @@ namespace JamesFrowen.CSP
     {
         void Simulate(float fixedDelta);
     }
+
     public interface IPredictionTime
     {
         /// <summary>
@@ -45,6 +46,7 @@ namespace JamesFrowen.CSP
         /// </summary>
         bool IsResimulation { get; }
     }
+
     internal interface IClientController
     {
         void AfterResimulate();
@@ -55,6 +57,7 @@ namespace JamesFrowen.CSP
         void InputTick(int clientLastSim);
         void OnTickSkip();
     }
+
     internal interface IServerController
     {
         void Tick(int tick);
@@ -63,6 +66,7 @@ namespace JamesFrowen.CSP
         void SetHostMode();
         void OnReceiveInput(int tick, ArraySegment<byte> payload);
     }
+
     public interface IDebugPredictionLocalCopy
     {
         IDebugPredictionLocalCopy Copy { get; set; }
@@ -70,10 +74,12 @@ namespace JamesFrowen.CSP
         void Setup(IPredictionTime time);
         void NoNetworkApply(object input);
     }
+
     public interface IDebugPredictionAfterImage
     {
         void CreateAfterImage(object state, Color color);
     }
+
     internal interface IPredictionBehaviour
     {
         IServerController ServerController { get; }
@@ -83,5 +89,11 @@ namespace JamesFrowen.CSP
         void ServerSetup(IPredictionTime time);
         void ClientSetup(IPredictionTime time);
         void CleanUp();
+    }
+
+    public interface ISnapShotGeneration<TState>
+    {
+        TState GatherState();
+        void ApplyState(TState state);
     }
 }
