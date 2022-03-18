@@ -26,6 +26,7 @@ namespace JamesFrowen.CSP
 
         public float FixedDeltaTime { get; }
         public int Tick { get; set; }
+        public bool IsResimulation { get; set; }
 
         public float FixedTime => Tick * FixedDeltaTime;
     }
@@ -148,6 +149,7 @@ namespace JamesFrowen.CSP
 
             // step forward Applying inputs
             // - include lastSimTick tick, because resim will be called before next tick
+            clientTime.IsResimulation = true;
             for (int tick = from; tick <= to; tick++)
             {
                 if (tick - from > Helper.BufferSize)
@@ -155,6 +157,7 @@ namespace JamesFrowen.CSP
 
                 Simulate(tick);
             }
+            clientTime.IsResimulation = false;
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.AfterResimulate();

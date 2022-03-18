@@ -39,6 +39,11 @@ namespace JamesFrowen.CSP
         /// </para>
         /// </summary>
         int Tick { get; }
+
+        /// <summary>
+        /// Is the current fixed update a resimulation? or the first time tick
+        /// </summary>
+        bool IsResimulation { get; }
     }
     internal interface IClientController
     {

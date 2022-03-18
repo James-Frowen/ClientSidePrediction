@@ -60,6 +60,7 @@ namespace JamesFrowen.CSP
             get => _tick;
         }
 
+        bool IPredictionTime.IsResimulation => false;
         float IPredictionTime.FixedTime => Tick * FixedDeltaTime;
 
         public void OnUpdate()
