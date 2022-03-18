@@ -65,11 +65,20 @@ namespace JamesFrowen.CSP
         /// <summary>
         /// Called on Server if inputs are missing
         /// </summary>
-        /// <param name="previous"></param>
-        /// <param name="previousTick"></param>
-        /// <param name="currentTick"></param>
+        /// <param name="previous">the previous valid input</param>
+        /// <param name="previousTick">what tick the previous valid was</param>
+        /// <param name="currentTick">the current missing tick</param>
         /// <returns></returns>
-        public abstract TInput MissingInput(TInput previous, int previousTick, int currentTick);
+        public virtual TInput MissingInput(TInput previous, int previousTick, int currentTick)
+        {
+            // default is just to return previous input.
+            // chances are that the player is pressing the same keys as they were last frame
+
+            // for exmaple they press space for jump, that will be true for multiple frames
+            // this should be used without ApplyInputs to check if jump key pressed this tick but not previous
+
+            return previous;
+        }
 
         /// <summary>
         /// Applies state to the object
@@ -103,7 +112,13 @@ namespace JamesFrowen.CSP
         /// </summary>
         /// <param name="before">state before resimulation</param>
         /// <param name="after">state after resimulation</param>
-        public abstract void ResimulationTransition(TState before, TState after);
+        public virtual void ResimulationTransition(TState before, TState after)
+        {
+            // by default nothing
+            // after state will already be applied nothing needs to happen
+
+            // you can override this function to apply moving between state before-re-simulatution and after.
+        }
 
 
         void IPredictionBehaviour.ServerSetup(IPredictionTime time)
