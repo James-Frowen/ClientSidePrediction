@@ -119,11 +119,7 @@ namespace JamesFrowen.CSP
 
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
 
-        TInput[] _inputBuffer;
-        TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
-        void SetInput(int tick, TInput state) => _inputBuffer[Helper.TickToBuffer(tick)] = state;
-        /// <summary>Clears Previous inputs for tick (eg tick =100 clears tick 99's inputs</summary>
-        void ClearPreviousInput(int tick) => SetInput(tick - 1, default);
+        NullableRingBuffer<TInput> _inputBuffer;
 
         int lastReceived = Helper.NO_VALUE;
         (int tick, TInput input) lastValidInput;
@@ -139,7 +135,7 @@ namespace JamesFrowen.CSP
         {
             this.behaviour = behaviour;
             if (behaviour.UseInputs())
-                _inputBuffer = new TInput[bufferSize];
+                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize);
         }
 
         void IServerController.WriteState(NetworkWriter writer)
@@ -159,11 +155,10 @@ namespace JamesFrowen.CSP
                 while (reader.CanReadBytes(1))
                 {
                     TInput input = reader.Read<TInput>();
-                    input.Valid = true;
                     // if new, and after last sim
                     if (inputTick > lastReceived && inputTick > lastSim)
                     {
-                        SetInput(inputTick, input);
+                        _inputBuffer.Set(inputTick, input);
                     }
 
                     // inputs written in reverse order, so --
@@ -204,7 +199,7 @@ namespace JamesFrowen.CSP
                 if (hostMode && behaviour.HasAuthority)
                 {
                     TInput thisTickInput = behaviour.GetInput();
-                    SetInput(tick, thisTickInput);
+                    _inputBuffer.Set(tick, thisTickInput);
                 }
 
                 getValidInputs(tick, out TInput input, out TInput previous);
@@ -214,7 +209,7 @@ namespace JamesFrowen.CSP
             behaviour.NetworkFixedUpdate();
 
             if (hasInputs)
-                ClearPreviousInput(tick);
+                _inputBuffer.Clear(tick - 1);
             lastSim = tick;
         }
 
@@ -227,25 +222,21 @@ namespace JamesFrowen.CSP
             if (!hostMode && lastReceived == Helper.NO_VALUE)
                 return;
 
-            input = getValidInput(tick);
-            previous = getValidInput(tick - 1);
-            if (input.Valid)
+            getValidInput(tick, out bool currentValid, out input);
+            getValidInput(tick - 1, out bool _, out previous);
+            if (currentValid)
             {
                 lastValidInput = (tick, input);
             }
         }
 
-        TInput getValidInput(int tick)
+        void getValidInput(int tick, out bool valid, out TInput input)
         {
-            TInput input = GetInput(tick);
-            if (input.Valid)
-            {
-                return input;
-            }
-            else
+            valid = _inputBuffer.TryGet(tick, out input);
+            if (!valid)
             {
                 if (logger.LogEnabled()) logger.Log($"No inputs for {tick}");
-                return behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
+                input = behaviour.MissingInput(lastValidInput.input, lastValidInput.tick, tick);
             }
         }
 
@@ -254,8 +245,7 @@ namespace JamesFrowen.CSP
             // todo check Alloc from boxing
             if (_input is TInput input)
             {
-                Debug.Assert(input.Valid);
-                SetInput(tick, input);
+                _inputBuffer.Set(tick, input);
             }
             else
             {

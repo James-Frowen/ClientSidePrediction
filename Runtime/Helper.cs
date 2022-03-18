@@ -16,6 +16,7 @@ namespace JamesFrowen.CSP
 
         // 256 is probably too bug, but is fine for example
         public const int BufferSize = 256;
+        [System.Obsolete("Use Ring buffer instead")]
         public static int TickToBuffer(int tick)
         {
             //negative

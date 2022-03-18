@@ -208,9 +208,7 @@ namespace JamesFrowen.CSP
 
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
 
-        TInput[] _inputBuffer;
-        TInput GetInput(int tick) => _inputBuffer[Helper.TickToBuffer(tick)];
-        void SetInput(int tick, TInput state) => _inputBuffer[Helper.TickToBuffer(tick)] = state;
+        NullableRingBuffer<TInput> _inputBuffer;
 
         int lastReceivedTick = Helper.NO_VALUE;
         TState lastReceivedState;
@@ -226,7 +224,7 @@ namespace JamesFrowen.CSP
             this.behaviour = behaviour;
             if (behaviour.UseInputs())
             {
-                _inputBuffer = new TInput[bufferSize];
+                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize);
             }
         }
 
@@ -290,8 +288,8 @@ namespace JamesFrowen.CSP
 
             if (behaviour.UseInputs())
             {
-                TInput input = GetInput(tick);
-                TInput previous = GetInput(tick - 1);
+                var input = _inputBuffer.Get(tick);
+                var previous = _inputBuffer.Get(tick - 1);
                 behaviour.ApplyInputs(input, previous);
             }
             behaviour.NetworkFixedUpdate();
@@ -307,8 +305,7 @@ namespace JamesFrowen.CSP
             lastInputTick = tick;
 
             TInput thisTickInput = behaviour.GetInput();
-            thisTickInput.Valid = true;
-            SetInput(tick, thisTickInput);
+            _inputBuffer.Set(tick, thisTickInput);
             SendInput(tick);
         }
 
@@ -323,12 +320,12 @@ namespace JamesFrowen.CSP
         {
             if (behaviour.IsLocalClient)
             {
-                behaviour.ServerController.ReceiveHostInput(tick, GetInput(tick));
+                behaviour.ServerController.ReceiveHostInput(tick, _inputBuffer.Get(tick));
                 return;
             }
 
             if (behaviour is IDebugPredictionLocalCopy debug)
-                debug.Copy?.NoNetworkApply(GetInput(tick));
+                debug.Copy?.NoNetworkApply(_inputBuffer.Get(tick));
 
             // no value means this is first send
             // for this case we can just send the acked value to tick-1 so that only new input is sent
@@ -347,9 +344,7 @@ namespace JamesFrowen.CSP
                 // must be `t` greater than ack, AND less than max
                 for (int t = tick; t > ackedInput && length < maxInputPerPacket; t--, length++)
                 {
-                    TInput input = GetInput(t);
-
-                    Debug.Assert(input.Valid, $"Client Sending invalid input, tick:{t}");
+                    var input = _inputBuffer.Get(t);
                     writer.Write(input);
                 }
 
