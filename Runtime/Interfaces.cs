@@ -59,16 +59,9 @@ namespace JamesFrowen.CSP
     {
         void Tick(int tick);
         void WriteState(NetworkWriter writer);
-        void ReceiveHostInput<TInput>(int tick, TInput _input) where TInput : IInputState;
+        void ReceiveHostInput<TInput>(int tick, TInput _input);
         void SetHostMode();
         void OnReceiveInput(int tick, ArraySegment<byte> payload);
-    }
-    public interface IInputState
-    {
-        // todo use nullable instead of bool here
-        // we just need valid to know if server received previous input
-        // we also need to clear old valid because ring buffer
-        bool Valid { get; set; }
     }
     public interface IDebugPredictionLocalCopy
     {

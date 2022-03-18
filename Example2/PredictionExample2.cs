@@ -145,10 +145,8 @@ namespace JamesFrowen.CSP.Example2
     }
 
     [NetworkMessage]
-    public struct InputState : IInputState
+    public struct InputState
     {
-        public bool Valid { get; set; }
-
         [BitCountFromRange(-1, 1)] public readonly int Horizontal;
         [BitCountFromRange(-1, 1)] public readonly int Vertical;
 
@@ -156,7 +154,6 @@ namespace JamesFrowen.CSP.Example2
         {
             Horizontal = horizontal;
             Vertical = vertical;
-            Valid = true;
         }
     }
 

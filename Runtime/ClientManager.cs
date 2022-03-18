@@ -202,7 +202,7 @@ namespace JamesFrowen.CSP
     /// </summary>
     /// <typeparam name="TInput"></typeparam>
     /// <typeparam name="TState"></typeparam>
-    internal class ClientController<TInput, TState> : IClientController where TInput : IInputState
+    internal class ClientController<TInput, TState> : IClientController
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientController");
 

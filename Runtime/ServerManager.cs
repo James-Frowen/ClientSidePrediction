@@ -113,7 +113,7 @@ namespace JamesFrowen.CSP
     /// </summary>
     /// <typeparam name="TInput"></typeparam>
     /// <typeparam name="TState"></typeparam>
-    internal class ServerController<TInput, TState> : IServerController where TInput : IInputState
+    internal class ServerController<TInput, TState> : IServerController
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 

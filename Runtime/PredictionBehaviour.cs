@@ -16,10 +16,8 @@ namespace JamesFrowen.CSP
     /// Placeholder input for non-input class
     /// Use never be used by scripts
     /// </summary>
-    public struct NoInputs : IInputState
-    {
-        public bool Valid { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-    }
+    public struct NoInputs { }
+
     /// <summary>
     /// Base class for Client side prediction for objects without input, like physics objects in a scene.
     /// </summary>
@@ -36,12 +34,12 @@ namespace JamesFrowen.CSP
     /// Base class for Client side prediction for objects with input, like player objects with movement.
     /// </summary>
     /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState> where TInput : IInputState
+    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState>
     {
         public sealed override bool HasInput => true;
     }
 
-    public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour where TInput : IInputState
+    public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour
     {
         ClientController<TInput, TState> _client;
         ServerController<TInput, TState> _server;
