@@ -13,6 +13,7 @@ using JamesFrowen.CSP.Simulations;
 using Mirage;
 using Mirage.Logging;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace JamesFrowen.CSP
 {
@@ -37,10 +38,11 @@ namespace JamesFrowen.CSP
         public SimulationMode physicsMode;
 
         [Header("Tick Settings")]
-        [SerializeField] internal float TickRate = 50;
+        public float TickRate = 50;
         [Tooltip("How Often to send pings, used to make sure inputs are delay by correct ammount")]
-        [SerializeField] private float PingInterval = 0.2f;
-        [SerializeField] ClientTickSettings ClientTickSettings = new ClientTickSettings();
+        public float PingInterval = 0.2f;
+        [FormerlySerializedAs("ClientTickSettings")]
+        [SerializeField] ClientTickSettings _clientTickSettings = new ClientTickSettings();
 
         ClientManager clientManager;
         ServerManager serverManager;
@@ -114,14 +116,14 @@ namespace JamesFrowen.CSP
                 Client.World.Time.PingInterval = PingInterval;
 
                 var clientRunner = new ClientTickRunner(Client.World.Time,
-                    diffThreshold: ClientTickSettings.diffThreshold,
-                    timeScaleModifier: ClientTickSettings.timeScaleModifier,
-                    skipThreshold: ClientTickSettings.skipThreshold,
-                    movingAverageCount: ClientTickSettings.movingAverageCount
+                    diffThreshold: _clientTickSettings.diffThreshold,
+                    timeScaleModifier: _clientTickSettings.timeScaleModifier,
+                    skipThreshold: _clientTickSettings.skipThreshold,
+                    movingAverageCount: _clientTickSettings.movingAverageCount
                     )
                 {
                     TickRate = TickRate,
-                    ClientDelay = ClientTickSettings.clientDelay,
+                    ClientDelay = _clientTickSettings.clientDelay,
                 };
                 clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
                 _tickRunner = clientRunner;
