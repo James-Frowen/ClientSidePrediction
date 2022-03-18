@@ -96,7 +96,7 @@ namespace JamesFrowen.CSP
             }
         }
 
-        // have this virutal methods here, just so we have use 1 field for TickRunner.
+        // have this virtual methods here, just so we have use 1 field for TickRunner.
         // we will only call this method on client so it should be a ClientTickRunner
         public virtual void OnMessage(int serverTick) => throw new NotSupportedException("OnMessage is not supported for default tick runner. See ClientTickRunner");
     }

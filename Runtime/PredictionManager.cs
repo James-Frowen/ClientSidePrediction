@@ -39,7 +39,7 @@ namespace JamesFrowen.CSP
 
         [Header("Tick Settings")]
         public float TickRate = 50;
-        [Tooltip("How Often to send pings, used to make sure inputs are delay by correct ammount")]
+        [Tooltip("How Often to send pings, used to make sure inputs are delay by correct amount")]
         public float PingInterval = 0.2f;
         [FormerlySerializedAs("ClientTickSettings")]
         [SerializeField] ClientTickSettings _clientTickSettings = new ClientTickSettings();

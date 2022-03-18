@@ -74,7 +74,7 @@ namespace JamesFrowen.CSP
             // default is just to return previous input.
             // chances are that the player is pressing the same keys as they were last frame
 
-            // for exmaple they press space for jump, that will be true for multiple frames
+            // for example they press space for jump, that will be true for multiple frames
             // this should be used without ApplyInputs to check if jump key pressed this tick but not previous
 
             return previous;
@@ -155,7 +155,7 @@ namespace JamesFrowen.CSP
                 return false;
 
             // is server and object has an owner
-            // note: this mean un-owned objects can't be controled by anyone expect the server
+            // note: this mean un-owned objects can't be controlled by anyone expect the server
             if (behaviour.IsServer)
             {
                 return behaviour.Owner != null;
