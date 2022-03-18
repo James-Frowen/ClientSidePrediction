@@ -58,11 +58,13 @@ namespace JamesFrowen.CSP
 
         private void OnSpawn(NetworkIdentity identity)
         {
+            if (logger.LogEnabled()) logger.Log($"OnSpawn for {identity.NetId}");
             foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
             {
                 // todo is using NetworkBehaviour as key ok? or does this need optimizing
                 if (networkBehaviour is IPredictionBehaviour behaviour)
                 {
+                    if (logger.LogEnabled()) logger.Log($"Found PredictionBehaviour for {identity.NetId} {behaviour.GetType().Name}");
                     behaviours.Add(networkBehaviour, behaviour);
                     behaviour.ServerSetup(time);
                     if (hostMode)
