@@ -36,4 +36,5 @@ Input functions:
 - `NetworkFixedUpdate` called on server and client, called once per tick and durning resimulation on client. Should be used to modify the state, For example adding a force to a rigidbody.
 - `ResimulationTransition` called on client to correct the resimulation. If empty the client will appear as if it is snapped to latest resimulation state. To move out this correct you can Lerp between previous and new state and call `ApplyState`.
 
-
+## Logic flow
+![flow chart for function calls](./CSP_FlowChart.png)
