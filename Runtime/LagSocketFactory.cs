@@ -29,6 +29,7 @@ namespace JamesFrowen.Mirage.DebugScripts
         public Color guiColor;
         private LagSocketGUI drawer;
 
+        public override int MaxPacketSize => inner.MaxPacketSize;
         public override ISocket CreateClientSocket() => new LagSocket(inner.CreateClientSocket(), settings);
         public override ISocket CreateServerSocket() => new LagSocket(inner.CreateClientSocket(), settings);
         public override IEndPoint GetBindEndPoint() => inner.GetBindEndPoint();
