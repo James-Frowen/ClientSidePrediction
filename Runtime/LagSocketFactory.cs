@@ -23,28 +23,12 @@ namespace JamesFrowen.Mirage.DebugScripts
         public SocketFactory inner;
         public LagSettings settings;
 
-
-        public bool guiEnabled;
-        public Rect guiOffset;
-        public Color guiColor;
-        private LagSocketGUI drawer;
-
         public override int MaxPacketSize => inner.MaxPacketSize;
         public override ISocket CreateClientSocket() => new LagSocket(inner.CreateClientSocket(), settings);
         public override ISocket CreateServerSocket() => new LagSocket(inner.CreateClientSocket(), settings);
         public override IEndPoint GetBindEndPoint() => inner.GetBindEndPoint();
         public override IEndPoint GetConnectEndPoint(string address = null, ushort? port = null) => inner.GetConnectEndPoint(address, port);
-
-        private void OnGUI()
-        {
-            if (guiEnabled)
-            {
-                if (drawer == null) drawer = new LagSocketGUI();
-                drawer.OnGUI(guiOffset, guiColor, settings);
-            }
-        }
     }
-
 
     [System.Serializable]
     public class LagSettings
