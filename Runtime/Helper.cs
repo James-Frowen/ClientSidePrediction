@@ -9,13 +9,13 @@
 
 namespace JamesFrowen.CSP
 {
-    internal class Helper
+    public class Helper
     {
         public const int NO_VALUE = -1;
 
 
-        // 256 is probably too bug, but is fine for example
-        public const int BufferSize = 256;
+        // 64 is probably too bug, but is fine for example
+        public const int BufferSize = 64;
         [System.Obsolete("Use Ring buffer instead")]
         public static int TickToBuffer(int tick)
         {
