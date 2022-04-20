@@ -41,14 +41,21 @@ namespace JamesFrowen.CSP
 
     public abstract class PredictionBehaviourBase<TInput, TState> : NetworkBehaviour, IPredictionBehaviour
     {
-        ClientController<TInput, TState> _client;
-        ServerController<TInput, TState> _server;
+        ClientController<TInput, TState> _clientController;
+        ServerController<TInput, TState> _serverController;
+        ServerManager _serverManager;
+        ClientManager _clientManager;
 
         // annoying cs stuff to have internal property and interface
-        internal IClientController ClientController => _client;
-        internal IServerController ServerController => _server;
-        IClientController IPredictionBehaviour.ClientController => _client;
-        IServerController IPredictionBehaviour.ServerController => _server;
+        internal IClientController ClientController => _clientController;
+        internal IServerController ServerController => _serverController;
+        IClientController IPredictionBehaviour.ClientController => _clientController;
+        IServerController IPredictionBehaviour.ServerController => _serverController;
+
+        internal ServerManager ServerManager => _serverManager;
+        internal ClientManager ClientManager => _clientManager;
+        ServerManager IPredictionBehaviour.ServerManager => _serverManager;
+        ClientManager IPredictionBehaviour.ClientManager => _clientManager;
 
         public IPredictionTime PredictionTime { get; set; }
 
@@ -128,29 +135,62 @@ namespace JamesFrowen.CSP
         }
 
 
-        void IPredictionBehaviour.ServerSetup(IPredictionTime time)
+        void IPredictionBehaviour.ServerSetup(ServerManager serverManager, IPredictionTime time)
         {
             PredictionTime = time;
-            _server = new ServerController<TInput, TState>(this, Helper.BufferSize);
+            _serverManager = serverManager;
+            _serverController = new ServerController<TInput, TState>(ServerManager, this, Helper.BufferSize);
         }
-        void IPredictionBehaviour.ClientSetup(IPredictionTime time)
+        void IPredictionBehaviour.ClientSetup(ClientManager clientManager, IPredictionTime time)
         {
             PredictionTime = time;
-            _client = new ClientController<TInput, TState>(this, Helper.BufferSize);
+            _clientManager = clientManager;
+            _clientController = new ClientController<TInput, TState>(this, Helper.BufferSize);
         }
 
         void IPredictionBehaviour.CleanUp()
         {
             PredictionTime = null;
-            _server = null;
-            _client = null;
+            _serverController = null;
+            _clientController = null;
+            _serverManager = null;
+            _clientManager = null;
         }
     }
 
     internal static class PredictionBehaviourExtensions
     {
         /// <summary>
-        /// Does the objects have inputs, and have control (eg server or authority
+        /// Does the objects have inputs, and have control (eg server or authority)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="behaviour"></param>
+        /// <returns></returns>
+        public static bool UseInputs(this IPredictionBehaviour behaviour)
+        {
+            var nb = (NetworkBehaviour)behaviour;
+
+            // if no inputs implemented, then just return early
+            if (!behaviour.HasInput)
+                return false;
+
+            // is server and object has an owner
+            // note: this mean un-owned objects can't be controlled by anyone expect the server
+            if (nb.IsServer)
+            {
+                return nb.Owner != null;
+            }
+            // is client and has authority over the object, like the player object
+            else if (nb.IsClient)
+            {
+                return nb.HasAuthority;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Does the objects have inputs, and have control (eg server or authority)
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="behaviour"></param>

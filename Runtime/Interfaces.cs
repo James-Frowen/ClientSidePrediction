@@ -7,7 +7,6 @@
  * permission of James Frowen
  *******************************************************/
 
-using System;
 using Mirage.Serialization;
 using UnityEngine;
 
@@ -24,6 +23,14 @@ namespace JamesFrowen.CSP
         /// Fixed interval between ticks
         /// </summary>
         float FixedDeltaTime { get; }
+
+        /// <summary>
+        /// Current time for simulation
+        /// <para>
+        /// this will rewind when doing resimulation on client
+        /// </para>
+        /// </summary>
+        double UnscaledTime { get; }
 
         /// <summary>
         /// Current time for simulation
@@ -52,10 +59,10 @@ namespace JamesFrowen.CSP
         void AfterResimulate();
         void BeforeResimulate();
 
-        void ReceiveState(int tick, NetworkReader reader);
+        void ReceiveState(NetworkReader reader, int tick);
         void Simulate(int tick);
         void InputTick(int clientLastSim);
-        void OnTickSkip();
+        void WriteInput(NetworkWriter writer, int tick);
     }
 
     internal interface IServerController
@@ -64,7 +71,7 @@ namespace JamesFrowen.CSP
         void WriteState(NetworkWriter writer, int tick);
         void ReceiveHostInput<TInput>(int tick, TInput _input);
         void SetHostMode();
-        void OnReceiveInput(int tick, ArraySegment<byte> payload);
+        void ReadInput(NetworkReader reader, int inputTick);
     }
 
     public interface IDebugPredictionLocalCopy
@@ -82,12 +89,16 @@ namespace JamesFrowen.CSP
 
     internal interface IPredictionBehaviour
     {
+        ServerManager ServerManager { get; }
+        ClientManager ClientManager { get; }
+
         IServerController ServerController { get; }
         IClientController ClientController { get; }
+
         bool HasInput { get; }
 
-        void ServerSetup(IPredictionTime time);
-        void ClientSetup(IPredictionTime time);
+        void ServerSetup(ServerManager serverManager, IPredictionTime time);
+        void ClientSetup(ClientManager clientManager, IPredictionTime time);
         void CleanUp();
     }
 

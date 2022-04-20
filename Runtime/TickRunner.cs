@@ -60,6 +60,12 @@ namespace JamesFrowen.CSP
             get => _tick;
         }
 
+        public double UnscaledTime
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => stopwatch.Elapsed.TotalSeconds;
+        }
+
         bool IPredictionTime.IsResimulation => false;
         float IPredictionTime.FixedTime => Tick * FixedDeltaTime;
 

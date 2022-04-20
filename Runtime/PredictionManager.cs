@@ -88,7 +88,7 @@ namespace JamesFrowen.CSP
             };
 
             serverManager = new ServerManager(_simulation, _tickRunner, Server.World);
-            _ = new InputMessageHandler(Server);
+            Server.MessageHandler.RegisterHandler<InputState>(serverManager.HandleInput);
 
             // we need to add players because serverManager keeps track of a list internally
             Server.Connected.AddListener(serverManager.AddPlayer);
@@ -143,7 +143,7 @@ namespace JamesFrowen.CSP
                     TickRate = TickRate,
                     ClientDelay = _clientTickSettings.clientDelay,
                 };
-                clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.MessageHandler);
+                clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.Player, Client.MessageHandler);
                 _tickRunner = clientRunner;
             }
         }
@@ -170,35 +170,6 @@ namespace JamesFrowen.CSP
         private void Update()
         {
             _tickRunner?.OnUpdate();
-        }
-    }
-
-    internal class InputMessageHandler
-    {
-        ILogger logger = LogFactory.GetLogger<InputMessageHandler>();
-
-        public InputMessageHandler(NetworkServer server)
-        {
-            server.MessageHandler.RegisterHandler<InputMessage>(HandleMessage);
-        }
-
-        private void HandleMessage(INetworkPlayer player, InputMessage message)
-        {
-            NetworkBehaviour networkBehaviour = message.behaviour;
-            if (networkBehaviour == null)
-            {
-                if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling InputMessage message");
-                return;
-            }
-
-            if (player != networkBehaviour.Owner)
-                throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
-
-            if (!(networkBehaviour is IPredictionBehaviour behaviour))
-                throw new InvalidOperationException($"Networkbehaviour({networkBehaviour.NetId}, {networkBehaviour.ComponentIndex}) was not a IPredictionBehaviour");
-
-
-            behaviour.ServerController.OnReceiveInput(message.tick, message.payload);
         }
     }
 }

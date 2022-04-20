@@ -9,6 +9,7 @@
 
 using System;
 using Mirage;
+using Mirage.Serialization;
 
 namespace JamesFrowen.CSP
 {
@@ -16,14 +17,28 @@ namespace JamesFrowen.CSP
     struct WorldState
     {
         public int tick;
+        /// <summary>
+        /// Send the last received time back to the client
+        /// <para>This will be used by the client to caculate its local time</para>
+        /// </summary>
+        public double ClientTime;
         public ArraySegment<byte> state;
     }
 
+    /// <summary>
+    /// All inputs for client
+    /// </summary>
     [NetworkMessage]
-    public struct InputMessage
+    public struct InputState
     {
-        public NetworkBehaviour behaviour;
         public int tick;
+        public double clientTime;
+
+        [BitCountFromRange(1, 8)]
+        public int length;
+        /// <summary>
+        /// collection of <see cref="InputMessage"/>
+        /// </summary>
         public ArraySegment<byte> payload;
     }
 

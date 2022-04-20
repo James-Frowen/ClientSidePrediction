@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using Mirage;
 using Mirage.Logging;
 using Mirage.Serialization;
+using Mirage.SocketLayer;
 using UnityEngine;
 
 
@@ -27,10 +28,15 @@ namespace JamesFrowen.CSP
         readonly Dictionary<NetworkBehaviour, IPredictionBehaviour> behaviours = new Dictionary<NetworkBehaviour, IPredictionBehaviour>();
         // keep track of player list ourselves, so that we can use the SendToMany that does not allocate
         readonly List<INetworkPlayer> _players;
+        readonly Dictionary<INetworkPlayer, PlayerTimeTracker> _playerTracker = new Dictionary<INetworkPlayer, PlayerTimeTracker>();
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
 
         bool hostMode;
+
+        internal int lastReceived = Helper.NO_VALUE;
+        internal int lastSim;
+
         internal void SetHostMode()
         {
             hostMode = true;
@@ -60,10 +66,12 @@ namespace JamesFrowen.CSP
         public void AddPlayer(INetworkPlayer player)
         {
             _players.Add(player);
+            _playerTracker.Add(player, new PlayerTimeTracker());
         }
         public void RemovePlayer(INetworkPlayer player)
         {
             _players.Remove(player);
+            _playerTracker.Remove(player);
         }
 
         private void OnSpawn(NetworkIdentity identity)
@@ -76,7 +84,7 @@ namespace JamesFrowen.CSP
                 {
                     if (logger.LogEnabled()) logger.Log($"Found PredictionBehaviour for {identity.NetId} {behaviour.GetType().Name}");
                     behaviours.Add(networkBehaviour, behaviour);
-                    behaviour.ServerSetup(time);
+                    behaviour.ServerSetup(this, time);
                     if (hostMode)
                         behaviour.ServerController.SetHostMode();
                 }
@@ -96,13 +104,22 @@ namespace JamesFrowen.CSP
         public void Tick(int tick)
         {
             if (logger.LogEnabled()) logger.Log($"Server tick {tick}");
+            simulate(tick);
+            SendState(tick);
+        }
+
+        private void simulate(int tick)
+        {
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
             {
                 behaviour.ServerController.Tick(tick);
             }
-
             simulation.Simulate(time.FixedDeltaTime);
+            lastSim = tick;
+        }
 
+        private void SendState(int tick)
+        {
             var msg = new WorldState() { tick = tick };
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
             {
@@ -115,8 +132,88 @@ namespace JamesFrowen.CSP
                 }
 
                 msg.state = writer.ToArraySegment();
-                NetworkServer.SendToMany(_players, msg, Channel.Unreliable);
+                for (int i = 0; i < _players.Count; i++)
+                {
+                    INetworkPlayer player = _players[i];
+                    PlayerTimeTracker tracker = _playerTracker[player];
+                    // set client time for each client, 
+                    // todo find way to avoid serialize multiple times
+                    msg.ClientTime = tracker.LastReceivedClientTime;
+
+                    INotifyCallBack token = TickNotifyToken.GetToken(tracker, tick);
+                    player.Send(msg, token);
+                }
             }
+        }
+
+        internal void HandleInput(INetworkPlayer player, InputState message)
+        {
+            // check if inputs have arrived in time and in order, otherwise we can't do anything with them.
+            if (!ValidateInputTick(message.tick))
+                return;
+
+            int length = message.length;
+            using (PooledNetworkReader reader = NetworkReaderPool.GetReader(message.payload))
+            {
+                NetworkBehaviour networkBehaviour = reader.ReadNetworkBehaviour();
+
+                if (networkBehaviour == null)
+                {
+                    if (logger.WarnEnabled()) logger.LogWarning($"Spawned object not found when handling InputMessage message");
+                    return;
+                }
+
+                if (player != networkBehaviour.Owner)
+                    throw new InvalidOperationException($"player {player} does not have authority to set inputs for object");
+
+                if (!(networkBehaviour is IPredictionBehaviour behaviour))
+                    throw new InvalidOperationException($"Networkbehaviour({networkBehaviour.NetId}, {networkBehaviour.ComponentIndex}) was not a IPredictionBehaviour");
+
+                int inputTick = message.tick;
+                for (int i = 0; i < length; i++)
+                {
+                    int t = inputTick - i;
+                    behaviour.ServerController.ReadInput(reader, t);
+                }
+            }
+
+            lastReceived = Mathf.Max(lastReceived, message.tick);
+        }
+
+        private bool ValidateInputTick(int tick)
+        {
+            // received inputs out of order
+            // we can ignore them, input[n+1] will contain input[n], so we would have no new inputs in this packet
+            if (lastReceived > tick)
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs out of order, lastReceived:{lastReceived} new inputs:{tick}");
+                return false;
+            }
+
+            // if lastTick is before last sim, then it is late and we can't use
+            if (tick >= lastSim)
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs for {tick}. lastSim:{lastSim}. early by {tick - lastSim}");
+                return true;
+            }
+
+            if (lastReceived == Helper.NO_VALUE)
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
+            }
+            else
+            {
+                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
+            }
+            return false;
+        }
+
+        class PlayerTimeTracker : ITickNotifyTracker
+        {
+            // todo use this to collect metrics about client (eg ping, rtt, etc)
+            public double LastReceivedClientTime;
+
+            public int LastAckedTick { get; set; }
         }
     }
 
@@ -130,13 +227,11 @@ namespace JamesFrowen.CSP
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
-
+        readonly ServerManager _manager;
         NullableRingBuffer<TInput> _inputBuffer;
         NullableRingBuffer<TState> _stateBuffer;
 
-        int lastReceived = Helper.NO_VALUE;
         (int tick, TInput input) lastValidInput;
-        int lastSim;
 
         bool hostMode;
         void IServerController.SetHostMode()
@@ -144,8 +239,9 @@ namespace JamesFrowen.CSP
             hostMode = true;
         }
 
-        public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
+        public ServerController(ServerManager manager, PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
+            _manager = manager;
             this.behaviour = behaviour;
 
             _stateBuffer = new NullableRingBuffer<TState>(bufferSize, behaviour as ISnapshotDisposer<TState>);
@@ -160,50 +256,14 @@ namespace JamesFrowen.CSP
             writer.Write(state);
         }
 
-        public void OnReceiveInput(int tick, ArraySegment<byte> payload)
+        void IServerController.ReadInput(NetworkReader reader, int inputTick)
         {
-            if (!ValidateInputTick(tick))
-                return;
-
-            using (PooledNetworkReader reader = NetworkReaderPool.GetReader(payload))
+            TInput input = reader.Read<TInput>();
+            // if new, and after last sim
+            if (inputTick > _manager.lastReceived && inputTick > _manager.lastSim)
             {
-                int inputTick = tick;
-                while (reader.CanReadBytes(1))
-                {
-                    TInput input = reader.Read<TInput>();
-                    // if new, and after last sim
-                    if (inputTick > lastReceived && inputTick > lastSim)
-                    {
-                        _inputBuffer.Set(inputTick, input);
-                    }
-
-                    // inputs written in reverse order, so --
-                    inputTick--;
-                }
+                _inputBuffer.Set(inputTick, input);
             }
-
-            lastReceived = Mathf.Max(lastReceived, tick);
-        }
-
-        private bool ValidateInputTick(int tick)
-        {
-            // if lastTick is before last sim, then it is late and we can't use
-            if (tick >= lastSim)
-            {
-                if (logger.LogEnabled()) logger.Log($"received inputs for {tick}. lastSim:{lastSim}. early by {tick - lastSim}");
-                return true;
-            }
-
-            // log at start, but warn after
-            if (lastReceived == Helper.NO_VALUE)
-            {
-                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}. But was at start, so not a problem");
-            }
-            else
-            {
-                if (logger.LogEnabled()) logger.Log($"received inputs <color=red>Late</color> for {tick}, lastSim:{lastSim}. late by {lastSim - tick}");
-            }
-            return false;
         }
 
         void IServerController.Tick(int tick)
@@ -226,7 +286,6 @@ namespace JamesFrowen.CSP
 
             if (hasInputs)
                 _inputBuffer.Clear(tick - 1);
-            lastSim = tick;
         }
 
         void getValidInputs(int tick, out TInput input, out TInput previous)
@@ -235,7 +294,7 @@ namespace JamesFrowen.CSP
             previous = default;
             // dont need to do anything till first is received
             // skip check hostmode, there are always inputs for hostmode
-            if (!hostMode && lastReceived == Helper.NO_VALUE)
+            if (!hostMode && _manager.lastReceived == Helper.NO_VALUE)
                 return;
 
             getValidInput(tick, out bool currentValid, out input);

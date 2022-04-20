@@ -14,27 +14,31 @@ using Mirage.Logging;
 using Mirage.Serialization;
 using Mirage.SocketLayer;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace JamesFrowen.CSP
 {
     class ClientTime : IPredictionTime
     {
-        public ClientTime(float fixedDeltaTime)
+        readonly IPredictionTime _tickRunner;
+
+        public ClientTime(IPredictionTime tickRunner)
         {
-            FixedDeltaTime = fixedDeltaTime;
+            _tickRunner = tickRunner;
         }
 
-        public float FixedDeltaTime { get; }
+        public float FixedDeltaTime => _tickRunner.FixedDeltaTime;
+        public double UnscaledTime => _tickRunner.UnscaledTime;
+        public float FixedTime => Tick * FixedDeltaTime;
+
         public int Tick { get; set; }
         public bool IsResimulation { get; set; }
-
-        public float FixedTime => Tick * FixedDeltaTime;
     }
 
     /// <summary>
     /// Controls all objects on client
     /// </summary>
-    internal class ClientManager
+    internal class ClientManager : ITickNotifyTracker
     {
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientManager");
 
@@ -42,21 +46,28 @@ namespace JamesFrowen.CSP
 
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
+        readonly INetworkPlayer _clientPlayer;
         readonly ClientTickRunner clientTickRunner;
+        /// <summary>Time used for physics, includes resimilation time. Driven by <see cref="time"/></summary>
         readonly ClientTime clientTime;
         readonly NetworkWorld world;
 
         int lastReceivedTick = Helper.NO_VALUE;
         bool unappliedTick;
+        const int maxInputPerPacket = 8;
+        int ackedInput = Helper.NO_VALUE;
 
-        public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, MessageHandler messageHandler)
+        int ITickNotifyTracker.LastAckedTick { get => ackedInput; set => ackedInput = value; }
+
+        public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, INetworkPlayer clientPlayer, MessageHandler messageHandler)
         {
             this.simulation = simulation;
             time = clientTickRunner;
+            _clientPlayer = clientPlayer;
             this.clientTickRunner = clientTickRunner;
             this.clientTickRunner.onTick += Tick;
             this.clientTickRunner.OnTickSkip += OnTickSkip;
-            clientTime = new ClientTime(time.FixedDeltaTime);
+            clientTime = new ClientTime(time);
 
             messageHandler.RegisterHandler<WorldState>(ReceiveWorldState);
             this.world = world;
@@ -72,8 +83,9 @@ namespace JamesFrowen.CSP
 
         private void OnTickSkip()
         {
-            foreach (IPredictionBehaviour behaviour in behaviours.Values)
-                behaviour.ClientController.OnTickSkip();
+            // clear inputs, start a fresh
+            // set to no value so SendInput can handle it as if there are no acks
+            ackedInput = Helper.NO_VALUE;
         }
 
         public void OnSpawn(NetworkIdentity identity)
@@ -84,7 +96,7 @@ namespace JamesFrowen.CSP
                 {
                     if (logger.LogEnabled()) logger.Log($"Spawned ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex}) {behaviour.GetType()}");
                     behaviours.Add(networkBehaviour, behaviour);
-                    behaviour.ClientSetup(clientTime);
+                    behaviour.ClientSetup(this, clientTime);
                 }
             }
         }
@@ -137,7 +149,7 @@ namespace JamesFrowen.CSP
                     // dont use assert, because string alloc
                     if (behaviour.ClientController == null)
                         logger.LogError($"Null ClientController for ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex})");
-                    behaviour.ClientController.ReceiveState(tick, reader);
+                    behaviour.ClientController.ReceiveState(reader, tick);
                 }
             }
         }
@@ -191,11 +203,62 @@ namespace JamesFrowen.CSP
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
             {
                 // get and send inputs
-                behaviour.ClientController.InputTick(tick);
+                if (behaviour.UseInputs())
+                    behaviour.ClientController.InputTick(tick);
             }
 
+            SendInputs(tick);
 
             Simulate(tick);
+        }
+
+        void SendInputs(int tick)
+        {
+            // no value means this is first send
+            // for this case we can just send the acked value to tick-1 so that only new input is sent
+            // next frame it will send this and next frames inputs like it should normally
+            if (ackedInput == Helper.NO_VALUE)
+                ackedInput = tick - 1;
+
+            if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {tick - ackedInput}");
+
+            Debug.Assert(tick > ackedInput, "new input should not have been acked before it was sent");
+
+            // write netid
+            // write number of inputs
+            // write each input
+
+            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
+            {
+                int numberOfTicks = tick - ackedInput;
+                int length = Math.Min(numberOfTicks, maxInputPerPacket);
+                Assert.IsTrue(1 <= length && length <= 8);
+
+                foreach (IPredictionBehaviour behaviour in behaviours.Values)
+                {
+                    // get and send inputs
+                    if (behaviour.UseInputs())
+                    {
+                        writer.WriteNetworkBehaviour((NetworkBehaviour)behaviour);
+                        for (int i = 0; i < length; i++)
+                        {
+                            int t = tick - i;
+                            behaviour.ClientController.WriteInput(writer, t);
+                        }
+                    }
+                }
+
+                var message = new InputState
+                {
+                    tick = tick,
+                    clientTime = time.UnscaledTime,
+                    length = length,
+                    payload = writer.ToArraySegment(),
+                };
+
+                INotifyCallBack token = TickNotifyToken.GetToken(this, tick);
+                _clientPlayer.Send(message, token);
+            }
         }
     }
 
@@ -219,9 +282,6 @@ namespace JamesFrowen.CSP
 
         private int lastInputTick;
 
-        const int maxInputPerPacket = 8;
-        private int ackedInput = Helper.NO_VALUE;
-
         public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
@@ -237,7 +297,7 @@ namespace JamesFrowen.CSP
                 throw new InvalidOperationException("Should not be called in host mode");
         }
 
-        public void ReceiveState(int tick, NetworkReader reader)
+        public void ReceiveState(NetworkReader reader, int tick)
         {
             ThrowIfHostMode();
 
@@ -262,7 +322,7 @@ namespace JamesFrowen.CSP
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
             if (behaviour.EnableResimulationTransition)
-            beforeResimulateState = behaviour.GatherState();
+                beforeResimulateState = behaviour.GatherState();
 
             // if lastSimTick = 105
             // then our last sim step will be (104->105)
@@ -278,18 +338,18 @@ namespace JamesFrowen.CSP
 
             if (behaviour.EnableResimulationTransition)
             {
-            TState next = behaviour.GatherState();
-            behaviour.ResimulationTransition(beforeResimulateState, next);
-            if (behaviour is IDebugPredictionAfterImage debug)
-                debug.CreateAfterImage(next, new Color(0, 0.4f, 1f));
+                TState next = behaviour.GatherState();
+                behaviour.ResimulationTransition(beforeResimulateState, next);
+                if (behaviour is IDebugPredictionAfterImage debug)
+                    debug.CreateAfterImage(next, new Color(0, 0.4f, 1f));
 
                 if (behaviour is ISnapshotDisposer<TState> disposer)
                 {
                     disposer.DisposeState(next);
                     disposer.DisposeState(beforeResimulateState);
                 }
-            beforeResimulateState = default;
-        }
+                beforeResimulateState = default;
+            }
         }
 
         /// <summary>
@@ -311,8 +371,7 @@ namespace JamesFrowen.CSP
 
         public void InputTick(int tick)
         {
-            if (!behaviour.UseInputs())
-                return;
+            Assert.IsTrue(behaviour.UseInputs());
 
             if (lastInputTick != 0 && lastInputTick != tick - 1)
                 if (logger.WarnEnabled()) logger.LogWarning($"Inputs ticks called out of order. Last:{lastInputTick} tick:{tick}");
@@ -320,87 +379,15 @@ namespace JamesFrowen.CSP
 
             TInput thisTickInput = behaviour.GetInput();
             _inputBuffer.Set(tick, thisTickInput);
-            SendInput(tick);
-        }
-
-        public void OnTickSkip()
-        {
-            // clear inputs, start a fresh
-            // set to no value so SendInput can handle it as if there are no acks
-            ackedInput = Helper.NO_VALUE;
-        }
-
-        void SendInput(int tick)
-        {
-            if (behaviour.IsLocalClient)
-            {
-                behaviour.ServerController.ReceiveHostInput(tick, _inputBuffer.Get(tick));
-                return;
-            }
 
             if (behaviour is IDebugPredictionLocalCopy debug)
                 debug.Copy?.NoNetworkApply(_inputBuffer.Get(tick));
-
-            // no value means this is first send
-            // for this case we can just send the acked value to tick-1 so that only new input is sent
-            // next frame it will send this and next frames inputs like it should normally
-            if (ackedInput == Helper.NO_VALUE)
-                ackedInput = tick - 1;
-
-            if (logger.LogEnabled()) logger.Log($"sending inputs for {tick}. length: {tick - ackedInput}");
-
-            Debug.Assert(tick > ackedInput, "new input should not have been acked before it was sent");
-
-            using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
-            {
-                int length = 0;
-                // tick -> ackedInput+1
-                // must be `t` greater than ack, AND less than max
-                for (int t = tick; t > ackedInput && length < maxInputPerPacket; t--, length++)
-                {
-                    var input = _inputBuffer.Get(t);
-                    writer.Write(input);
-                }
-
-                var message = new InputMessage
-                {
-                    behaviour = behaviour,
-                    tick = tick,
-                    payload = writer.ToArraySegment(),
-                };
-
-                INotifyCallBack token = NotifyToken.GetToken(this, tick);
-
-                INetworkClient client = behaviour.Client;
-                client.Send(message, token);
-            }
         }
 
-        class NotifyToken : INotifyCallBack
+        void IClientController.WriteInput(NetworkWriter writer, int tick)
         {
-            static Pool<NotifyToken> pool = new Pool<NotifyToken>((_, __) => new NotifyToken(), 0, 10, Helper.BufferSize, logger);
-            public static INotifyCallBack GetToken(ClientController<TInput, TState> controller, int tick)
-            {
-                NotifyToken token = pool.Take();
-                token.controller = controller;
-                token.tick = tick;
-                return token;
-            }
-
-            ClientController<TInput, TState> controller;
-            int tick;
-
-            public void OnDelivered()
-            {
-                // take highest value of current ack and new ack
-                controller.ackedInput = Math.Max(controller.ackedInput, tick);
-                pool.Put(this);
-            }
-
-            public void OnLost()
-            {
-                pool.Put(this);
-            }
+            TInput input = _inputBuffer.Get(tick);
+            writer.Write(input);
         }
     }
 }
