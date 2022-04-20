@@ -8,7 +8,6 @@
  *******************************************************/
 
 using System;
-using System.Collections.Generic;
 using JamesFrowen.CSP.Simulations;
 using Mirage;
 using Mirage.Logging;
@@ -74,6 +73,12 @@ namespace JamesFrowen.CSP
             Client?.Started.AddListener(ClientStarted);
             Client?.Disconnected.AddListener(ClientStopped);
         }
+        private void OnDestroy()
+        {
+            // clean up if this object is destroyed
+            ServerStopped();
+            ClientStopped(default);
+        }
 
         void ServerStarted()
         {
@@ -82,20 +87,33 @@ namespace JamesFrowen.CSP
                 TickRate = TickRate
             };
 
-            // just pass in players collection, later this could be changed for match based stuff where you just pass in players for a match
-            IReadOnlyCollection<INetworkPlayer> players = Server.Players;
-
-            serverManager = new ServerManager(players, _simulation, _tickRunner, Server.World);
+            serverManager = new ServerManager(_simulation, _tickRunner, Server.World);
             _ = new InputMessageHandler(Server);
+
+            // we need to add players because serverManager keeps track of a list internally
+            Server.Connected.AddListener(serverManager.AddPlayer);
+            Server.Disconnected.AddListener(serverManager.RemovePlayer);
+
+            foreach (INetworkPlayer player in Server.Players)
+                serverManager.AddPlayer(player);
         }
 
         void ServerStopped()
         {
+            // if null, nothing to clean up
+            if (serverManager == null)
+                return;
+
             foreach (NetworkIdentity obj in Server.World.SpawnedIdentities)
             {
                 if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
                     behaviour.CleanUp();
             }
+
+            // make sure to remove listens before setting to null
+            Server.Connected.RemoveListener(serverManager.AddPlayer);
+            Server.Disconnected.RemoveListener(serverManager.RemovePlayer);
+
             _tickRunner = null;
             serverManager = null;
         }
@@ -132,8 +150,12 @@ namespace JamesFrowen.CSP
 
         void ClientStopped(ClientStoppedReason _)
         {
+            // todo, can we just have the `clientManager == null)` check below?
             // nothing to clean up if hostmode
             if (Server != null && Server.Active)
+                return;
+            // if null, nothing to clean up
+            if (clientManager == null)
                 return;
 
             foreach (NetworkIdentity obj in Client.World.SpawnedIdentities)

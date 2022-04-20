@@ -134,7 +134,9 @@ namespace JamesFrowen.CSP
                     Debug.Assert(networkBehaviour is IPredictionBehaviour);
 
                     var behaviour = (IPredictionBehaviour)networkBehaviour;
-                    Debug.Assert(behaviour.ClientController != null, $"Null ClientController for ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex})");
+                    // dont use assert, because string alloc
+                    if (behaviour.ClientController == null)
+                        logger.LogError($"Null ClientController for ({networkBehaviour.NetId},{networkBehaviour.ComponentIndex})");
                     behaviour.ClientController.ReceiveState(tick, reader);
                 }
             }
@@ -142,7 +144,7 @@ namespace JamesFrowen.CSP
 
         void Resimulate(int from, int to)
         {
-            logger.Log($"Resimulate from {from} to {to}");
+            if (logger.LogEnabled()) logger.Log($"Resimulate from {from} to {to}");
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
                 behaviour.ClientController.BeforeResimulate();
@@ -209,6 +211,7 @@ namespace JamesFrowen.CSP
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
 
         NullableRingBuffer<TInput> _inputBuffer;
+        NullableRingBuffer<TState> _stateBuffer;
 
         int lastReceivedTick = Helper.NO_VALUE;
         TState lastReceivedState;
@@ -222,10 +225,10 @@ namespace JamesFrowen.CSP
         public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
+
+            _stateBuffer = new NullableRingBuffer<TState>(bufferSize, behaviour as ISnapshotDisposer<TState>);
             if (behaviour.UseInputs())
-            {
-                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize);
-            }
+                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize, behaviour as ISnapshotDisposer<TInput>);
         }
 
         void ThrowIfHostMode()
@@ -244,6 +247,7 @@ namespace JamesFrowen.CSP
                 logger.LogWarning("State out of order");
                 return;
             }
+            _stateBuffer.Set(tick, state);
 
             if (logger.LogEnabled()) logger.Log($"received STATE for {tick}");
             lastReceivedTick = tick;
@@ -257,6 +261,7 @@ namespace JamesFrowen.CSP
             // if receivedTick = 100
             // then we want to Simulate (100->101)
             // so we pass tick 100 into Simulate
+            if (behaviour.EnableResimulationTransition)
             beforeResimulateState = behaviour.GatherState();
 
             // if lastSimTick = 105
@@ -271,11 +276,20 @@ namespace JamesFrowen.CSP
         {
             ThrowIfHostMode();
 
+            if (behaviour.EnableResimulationTransition)
+            {
             TState next = behaviour.GatherState();
             behaviour.ResimulationTransition(beforeResimulateState, next);
             if (behaviour is IDebugPredictionAfterImage debug)
                 debug.CreateAfterImage(next, new Color(0, 0.4f, 1f));
+
+                if (behaviour is ISnapshotDisposer<TState> disposer)
+                {
+                    disposer.DisposeState(next);
+                    disposer.DisposeState(beforeResimulateState);
+                }
             beforeResimulateState = default;
+        }
         }
 
         /// <summary>
@@ -288,8 +302,8 @@ namespace JamesFrowen.CSP
 
             if (behaviour.UseInputs())
             {
-                var input = _inputBuffer.Get(tick);
-                var previous = _inputBuffer.Get(tick - 1);
+                TInput input = _inputBuffer.Get(tick);
+                TInput previous = _inputBuffer.Get(tick - 1);
                 behaviour.ApplyInputs(input, previous);
             }
             behaviour.NetworkFixedUpdate();

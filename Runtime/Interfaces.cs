@@ -61,7 +61,7 @@ namespace JamesFrowen.CSP
     internal interface IServerController
     {
         void Tick(int tick);
-        void WriteState(NetworkWriter writer);
+        void WriteState(NetworkWriter writer, int tick);
         void ReceiveHostInput<TInput>(int tick, TInput _input);
         void SetHostMode();
         void OnReceiveInput(int tick, ArraySegment<byte> payload);
@@ -95,5 +95,10 @@ namespace JamesFrowen.CSP
     {
         TState GatherState();
         void ApplyState(TState state);
+    }
+
+    public interface ISnapshotDisposer<TState>
+    {
+        void DisposeState(TState state);
     }
 }

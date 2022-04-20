@@ -17,13 +17,16 @@ namespace JamesFrowen.CSP
     /// </remarks>
     public struct NullableRingBuffer<T>
     {
+        readonly ISnapshotDisposer<T> _disposer;
         readonly int _size;
-        Valid[] _buffer;
+        readonly Valid[] _buffer;
 
-        public NullableRingBuffer(int size) : this()
+        public NullableRingBuffer(int size) : this(size, null) { }
+        public NullableRingBuffer(int size, ISnapshotDisposer<T> disposer)
         {
             _size = size;
             _buffer = new Valid[size];
+            _disposer = disposer;
         }
 
         int IndexToBuffer(int index)
@@ -38,7 +41,7 @@ namespace JamesFrowen.CSP
         public T Get(int index)
         {
             Valid item = _buffer[IndexToBuffer(index)];
-            if (item.IsValid)
+            if (item.HasValue)
                 return item.Value;
             else
                 return default;
@@ -50,13 +53,13 @@ namespace JamesFrowen.CSP
         public bool IsValid(int index)
         {
             Valid item = _buffer[IndexToBuffer(index)];
-            return item.IsValid;
+            return item.HasValue;
         }
 
         public bool TryGet(int index, out T value)
         {
             Valid item = _buffer[IndexToBuffer(index)];
-            if (item.IsValid)
+            if (item.HasValue)
             {
                 value = item.Value;
                 return true;
@@ -70,10 +73,21 @@ namespace JamesFrowen.CSP
 
         public void Set(int index, T value)
         {
+            if (_disposer != null)
+            {
+                // when we set a new value, we want to make sure old value is disposed correctly. 
+                // this allows for pooled objects to be used in the state
+                Valid oldItem = _buffer[IndexToBuffer(index)];
+                if (oldItem.HasValue)
+                {
+                    _disposer.DisposeState(oldItem.Value);
+                }
+            }
+
             _buffer[IndexToBuffer(index)] = new Valid
             {
                 Value = value,
-                IsValid = true,
+                HasValue = true,
             };
         }
 
@@ -88,7 +102,7 @@ namespace JamesFrowen.CSP
         struct Valid
         {
             public T Value;
-            public bool IsValid;
+            public bool HasValue;
         }
     }
 }

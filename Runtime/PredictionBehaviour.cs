@@ -106,6 +106,13 @@ namespace JamesFrowen.CSP
         /// </summary>
         /// <param name="fixedDelta"></param>
         public abstract void NetworkFixedUpdate();
+
+        /// <summary>
+        /// Used to disable ResimulationTransition
+        /// <para>ResimulationTransition requires the state to be gathered before and after resimulation. set this property to false to avoid that</para>
+        /// </summary>
+        public virtual bool EnableResimulationTransition => true;
+
         /// <summary>
         /// Used to smooth movement on client after Resimulation
         /// <para>Call <see cref="ApplyState"/> using to set new position or Leave empty function for no smoothing</para>

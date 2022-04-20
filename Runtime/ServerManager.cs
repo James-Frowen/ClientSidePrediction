@@ -25,7 +25,8 @@ namespace JamesFrowen.CSP
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerManager");
 
         readonly Dictionary<NetworkBehaviour, IPredictionBehaviour> behaviours = new Dictionary<NetworkBehaviour, IPredictionBehaviour>();
-        readonly IEnumerable<INetworkPlayer> players;
+        // keep track of player list ourselves, so that we can use the SendToMany that does not allocate
+        readonly List<INetworkPlayer> _players;
         readonly IPredictionSimulation simulation;
         readonly IPredictionTime time;
 
@@ -39,9 +40,9 @@ namespace JamesFrowen.CSP
             }
         }
 
-        public ServerManager(IEnumerable<INetworkPlayer> players, IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world)
+        public ServerManager(IPredictionSimulation simulation, TickRunner tickRunner, NetworkWorld world)
         {
-            this.players = players;
+            _players = new List<INetworkPlayer>();
             this.simulation = simulation;
             time = tickRunner;
             tickRunner.onTick += Tick;
@@ -54,6 +55,15 @@ namespace JamesFrowen.CSP
             {
                 OnSpawn(item);
             }
+        }
+
+        public void AddPlayer(INetworkPlayer player)
+        {
+            _players.Add(player);
+        }
+        public void RemovePlayer(INetworkPlayer player)
+        {
+            _players.Remove(player);
         }
 
         private void OnSpawn(NetworkIdentity identity)
@@ -101,11 +111,11 @@ namespace JamesFrowen.CSP
                     writer.WriteNetworkBehaviour(kvp.Key);
 
                     IPredictionBehaviour behaviour = kvp.Value;
-                    behaviour.ServerController.WriteState(writer);
+                    behaviour.ServerController.WriteState(writer, tick);
                 }
 
                 msg.state = writer.ToArraySegment();
-                NetworkServer.SendToMany(players, msg, Channel.Unreliable);
+                NetworkServer.SendToMany(_players, msg, Channel.Unreliable);
             }
         }
     }
@@ -122,6 +132,7 @@ namespace JamesFrowen.CSP
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
 
         NullableRingBuffer<TInput> _inputBuffer;
+        NullableRingBuffer<TState> _stateBuffer;
 
         int lastReceived = Helper.NO_VALUE;
         (int tick, TInput input) lastValidInput;
@@ -136,13 +147,16 @@ namespace JamesFrowen.CSP
         public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
+
+            _stateBuffer = new NullableRingBuffer<TState>(bufferSize, behaviour as ISnapshotDisposer<TState>);
             if (behaviour.UseInputs())
-                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize);
+                _inputBuffer = new NullableRingBuffer<TInput>(bufferSize, behaviour as ISnapshotDisposer<TInput>);
         }
 
-        void IServerController.WriteState(NetworkWriter writer)
+        void IServerController.WriteState(NetworkWriter writer, int tick)
         {
             TState state = behaviour.GatherState();
+            _stateBuffer.Set(tick, state);
             writer.Write(state);
         }
 
