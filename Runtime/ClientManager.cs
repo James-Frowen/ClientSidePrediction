@@ -83,6 +83,8 @@ namespace JamesFrowen.CSP
 
         private void OnTickSkip()
         {
+            if (logger.LogEnabled()) logger.Log($"Tick Skip");
+
             // clear inputs, start a fresh
             // set to no value so SendInput can handle it as if there are no acks
             ackedInput = Helper.NO_VALUE;
@@ -104,7 +106,7 @@ namespace JamesFrowen.CSP
         {
             foreach (NetworkBehaviour networkBehaviour in identity.NetworkBehaviours)
             {
-                if (networkBehaviour is IPredictionBehaviour behaviour)
+                if (networkBehaviour is IPredictionBehaviour)
                 {
                     behaviours.Remove(networkBehaviour);
                 }
@@ -114,7 +116,7 @@ namespace JamesFrowen.CSP
         void ReceiveWorldState(INetworkPlayer _, WorldState state)
         {
             ReceiveState(state.tick, state.state);
-            clientTickRunner.OnMessage(state.tick);
+            clientTickRunner.OnMessage(state.tick, state.ClientTime);
         }
         void ReceiveState(int tick, ArraySegment<byte> statePayload)
         {
@@ -127,10 +129,8 @@ namespace JamesFrowen.CSP
             if (logger.LogEnabled()) logger.Log($"received STATE for {tick}");
             unappliedTick = true;
             lastReceivedTick = tick;
-            using (PooledNetworkReader reader = NetworkReaderPool.GetReader(statePayload))
+            using (PooledNetworkReader reader = NetworkReaderPool.GetReader(statePayload, world))
             {
-                reader.ObjectLocator = world;
-
                 while (reader.CanReadBytes(1))
                 {
                     NetworkBehaviour networkBehaviour = reader.ReadNetworkBehaviour();
@@ -239,7 +239,9 @@ namespace JamesFrowen.CSP
                     // get and send inputs
                     if (behaviour.UseInputs())
                     {
-                        writer.WriteNetworkBehaviour((NetworkBehaviour)behaviour);
+                        var nb = (NetworkBehaviour)behaviour;
+                        Debug.Assert(nb.HasAuthority);
+                        writer.WriteNetworkBehaviour(nb);
                         for (int i = 0; i < length; i++)
                         {
                             int t = tick - i;

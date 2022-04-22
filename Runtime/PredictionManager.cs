@@ -23,7 +23,7 @@ namespace JamesFrowen.CSP
         public float diffThreshold = 0.5f;
         public float timeScaleModifier = 0.01f;
         public float skipThreshold = 10f;
-        public int movingAverageCount = 30;
+        public int movingAverageCount = 100;
     }
     public class PredictionManager : MonoBehaviour
     {
@@ -133,7 +133,7 @@ namespace JamesFrowen.CSP
             {
                 Client.World.Time.PingInterval = PingInterval;
 
-                var clientRunner = new ClientTickRunner(Client.World.Time,
+                var clientRunner = new ClientTickRunner(
                     diffThreshold: _clientTickSettings.diffThreshold,
                     timeScaleModifier: _clientTickSettings.timeScaleModifier,
                     skipThreshold: _clientTickSettings.skipThreshold,

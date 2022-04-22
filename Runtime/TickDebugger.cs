@@ -1,3 +1,4 @@
+using System;
 using Mirage;
 using UnityEngine;
 
@@ -5,11 +6,12 @@ namespace JamesFrowen.CSP
 {
     public class TickDebugger : NetworkBehaviour
     {
-        public int ClientDelay;
+        //public int ClientDelay;
 
         TickRunner tickRunner;
         ClientTickRunner ClientRunner => (ClientTickRunner)tickRunner;
 
+        double latestClientTime;
         int clientTick;
         int serverTick;
 
@@ -20,6 +22,10 @@ namespace JamesFrowen.CSP
             Identity.OnStartClient.AddListener(OnStartClient);
             Identity.OnStartServer.AddListener(OnStartServer);
         }
+        private void Update()
+        {
+            tickRunner.OnUpdate();
+        }
         void OnStartServer()
         {
             tickRunner = new TickRunner();
@@ -29,23 +35,14 @@ namespace JamesFrowen.CSP
         private void ServerTick(int tick)
         {
             serverTick = tick;
-            RpcStateMessage(tick);
-        }
-
-        [ClientRpc(channel = Channel.Unreliable)]
-        public void RpcStateMessage(int tick)
-        {
-            tickRunner.OnMessage(tick);
-            serverTick = tick;
-            diff.Add(clientTick - serverTick);
+            ToClient_StateMessage(tick, latestClientTime);
         }
 
         void OnStartClient()
         {
-            tickRunner = new ClientTickRunner(Client.World.Time)
-            {
-                ClientDelay = ClientDelay,
-            };
+            tickRunner = new ClientTickRunner(
+                movingAverageCount: 50 * 5// 5 seconds
+                );
             tickRunner.onTick += ClientTick;
             NetworkTime.PingInterval = 0;
         }
@@ -53,14 +50,24 @@ namespace JamesFrowen.CSP
         private void ClientTick(int tick)
         {
             clientTick = tick;
-            RpcInputMessage(tick);
+            ToServer_InputMessage(tick, tickRunner.UnscaledTime);
         }
 
+        [ClientRpc(channel = Channel.Unreliable)]
+        public void ToClient_StateMessage(int tick, double clientTime)
+        {
+            tickRunner.OnMessage(tick, clientTime);
+            serverTick = tick;
+            diff.Add(clientTick - serverTick);
+        }
+
+
         [ServerRpc(channel = Channel.Unreliable)]
-        public void RpcInputMessage(int tick)
+        public void ToServer_InputMessage(int tick, double clientTime)
         {
             clientTick = tick;
             diff.Add(clientTick - serverTick);
+            latestClientTime = Math.Max(latestClientTime, clientTime);
         }
 
         private void OnGUI()
@@ -69,22 +76,33 @@ namespace JamesFrowen.CSP
             using (new GUILayout.AreaScope(new Rect(x, 10, 250, 500), GUIContent.none))
             {
                 GUI.enabled = false;
-                GUILayout.Label($"Client Tick {clientTick}");
+                if (IsServer)
+                {
+                    bool ahead = clientTick > serverTick;
+                    string aheadText = ahead ? "Ahead" : "behind";
+                    GUILayout.Label($"Client Tick {clientTick} {aheadText}");
+                }
+                else
+                {
+                    GUILayout.Label($"Client Tick {clientTick}");
+                }
                 GUILayout.Label($"Server Tick {serverTick}");
                 GUILayout.Space(20);
                 GUILayout.Label($"Diff {diff.Value:0.00}");
                 if (IsServer)
-                    GUILayout.Label($"target {ClientDelay:0.00}");
+                    GUILayout.Label($"target {0.0f:0.00}");
                 if (IsClient)
-                    GUILayout.Label($"target {ClientRunner.TargetDelayTicks:0.00}");
+                    GUILayout.Label($"target {ClientRunner.Debug_DelayInTicks:0.00}");
 
 
                 if (IsClient)
                 {
                     GUILayout.Space(20);
                     GUILayout.Label($"scale {ClientRunner.TimeScale:0.00}");
-                    GUILayout.Label($"RTT {NetworkTime.Rtt * 1000:0}");
-                    GUILayout.Label($"Target Delay {(NetworkTime.Rtt + ClientRunner.ClientDelaySeconds) * 1000:0}");
+                    (float rtt, float jitter) = ClientRunner.Debug_RTT.GetAverageAndStandardDeviation();
+                    GUILayout.Label($"RTT {rtt * 1000:0}");
+                    GUILayout.Label($"Jitter {jitter * 1000:0}");
+                    GUILayout.Label($"Target Delay {(rtt + jitter * 2) * 1000:0}");
                 }
                 GUI.enabled = true;
             }

@@ -71,7 +71,7 @@ namespace JamesFrowen.CSP
         void WriteState(NetworkWriter writer, int tick);
         void ReceiveHostInput<TInput>(int tick, TInput _input);
         void SetHostMode();
-        void ReadInput(NetworkReader reader, int inputTick);
+        void ReadInput(ServerManager.PlayerTimeTracker tracker, NetworkReader reader, int inputTick);
     }
 
     public interface IDebugPredictionLocalCopy

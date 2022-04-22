@@ -11,7 +11,9 @@ namespace JamesFrowen.CSP
         private IEnumerator Start()
         {
             NetworkManager server = Instantiate(managerPrefab);
+            server.name += "server";
             NetworkManager client = Instantiate(managerPrefab);
+            client.name += "client";
 
             yield return null;
             yield return null;
