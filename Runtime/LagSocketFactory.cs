@@ -198,10 +198,13 @@ namespace JamesFrowen.Mirage.DebugScripts
 
             double angle1 = Now() * settings.LatencySinFrequency + latencySinOffset;
             double angle2 = Now() * settings.JitterSinFrequency + jitterSinOffset;
-            float sin1 = Math.Sign(angle1) * settings.LatencySinAmplitude;
-            float sin2 = Math.Sign(angle2) * settings.JitterSinAmplitude;
+            double sin1 = Math.Sin(angle1);
+            double sin2 = Math.Sin(angle2);
 
-            return settings.Latency + sin1 + sin2;
+            double sin1A = sin1 * settings.LatencySinAmplitude;
+            double sin2A = sin2 * settings.JitterSinAmplitude;
+
+            return settings.Latency + sin1A + sin2A;
         }
 
         public bool Poll()
