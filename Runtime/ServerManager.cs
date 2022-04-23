@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Mirage;
 using Mirage.Logging;
 using Mirage.Serialization;
@@ -36,6 +37,9 @@ namespace JamesFrowen.CSP
         bool hostMode;
 
         internal int lastSim;
+
+
+        public PlayerTimeTracker Debug_FirstPlayertracker => _playerTracker.Values.FirstOrDefault();
 
         internal void SetHostMode()
         {

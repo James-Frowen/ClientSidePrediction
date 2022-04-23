@@ -59,6 +59,8 @@ namespace JamesFrowen.CSP
 
         int ITickNotifyTracker.LastAckedTick { get => ackedInput; set => ackedInput = value; }
 
+        public int Debug_ServerTick => lastReceivedTick;
+
         public ClientManager(IPredictionSimulation simulation, ClientTickRunner clientTickRunner, NetworkWorld world, INetworkPlayer clientPlayer, MessageHandler messageHandler)
         {
             this.simulation = simulation;

@@ -43,6 +43,9 @@ namespace JamesFrowen.CSP
         [FormerlySerializedAs("ClientTickSettings")]
         [SerializeField] ClientTickSettings _clientTickSettings = new ClientTickSettings();
 
+        [Header("Debug")]
+        public TickDebuggerGui Gui;
+
         ClientManager clientManager;
         ServerManager serverManager;
 
@@ -170,6 +173,42 @@ namespace JamesFrowen.CSP
         private void Update()
         {
             _tickRunner?.OnUpdate();
+#if DEBUG
+            SetGuiValues();
+#endif
+        }
+
+        private void SetGuiValues()
+        {
+            if (Gui != null)
+            {
+                Gui.IsServer = Server != null && Server.Active;
+                Gui.IsClient = (Client != null && Client.Active) && !(Server != null && Server.Active);
+
+                if (Gui.IsServer)
+                {
+                    Gui.ClientTick = serverManager.Debug_FirstPlayertracker?.lastReceivedInput ?? 0;
+                    Gui.ServerTick = TickRunner.Tick;
+                    Gui.Diff = Gui.ClientTick - Gui.ServerTick;
+                }
+                if (Gui.IsClient)
+                {
+                    Gui.ClientTick = TickRunner.Tick;
+                    Gui.ServerTick = clientManager.Debug_ServerTick;
+                    Gui.Diff = Gui.ClientTick - Gui.ServerTick;
+                }
+
+
+                if (Gui.IsClient)
+                {
+                    var clientRunner = (ClientTickRunner)TickRunner;
+                    Gui.ClientDelayInTicks = clientRunner.Debug_DelayInTicks;
+                    Gui.ClientTimeScale = clientRunner.TimeScale;
+                    (float average, float stdDev) = clientRunner.Debug_RTT.GetAverageAndStandardDeviation();
+                    Gui.ClientRTT = average;
+                    Gui.ClientJitter = stdDev;
+                }
+            }
         }
     }
 }

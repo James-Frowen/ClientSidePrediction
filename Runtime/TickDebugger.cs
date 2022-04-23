@@ -1,6 +1,5 @@
 using System;
 using Mirage;
-using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
@@ -17,14 +16,33 @@ namespace JamesFrowen.CSP
 
         ExponentialMovingAverage diff = new ExponentialMovingAverage(10);
 
+        TickDebuggerGui gui;
+
         private void Awake()
         {
             Identity.OnStartClient.AddListener(OnStartClient);
             Identity.OnStartServer.AddListener(OnStartServer);
+            gui = GetComponent<TickDebuggerGui>();
         }
         private void Update()
         {
             tickRunner.OnUpdate();
+
+            gui.IsServer = IsServer;
+            gui.IsClient = IsClient;
+
+            gui.ClientTick = clientTick;
+            gui.ServerTick = serverTick;
+            gui.Diff = diff.Var;
+
+            if (IsClient)
+            {
+                gui.ClientDelayInTicks = ClientRunner.Debug_DelayInTicks;
+                gui.ClientTimeScale = ClientRunner.TimeScale;
+                (float average, float stdDev) = ClientRunner.Debug_RTT.GetAverageAndStandardDeviation();
+                gui.ClientRTT = average;
+                gui.ClientJitter = stdDev;
+            }
         }
         void OnStartServer()
         {
@@ -68,44 +86,6 @@ namespace JamesFrowen.CSP
             clientTick = tick;
             diff.Add(clientTick - serverTick);
             latestClientTime = Math.Max(latestClientTime, clientTime);
-        }
-
-        private void OnGUI()
-        {
-            int x = IsServer ? 100 : 400;
-            using (new GUILayout.AreaScope(new Rect(x, 10, 250, 500), GUIContent.none))
-            {
-                GUI.enabled = false;
-                if (IsServer)
-                {
-                    bool ahead = clientTick > serverTick;
-                    string aheadText = ahead ? "Ahead" : "behind";
-                    GUILayout.Label($"Client Tick {clientTick} {aheadText}");
-                }
-                else
-                {
-                    GUILayout.Label($"Client Tick {clientTick}");
-                }
-                GUILayout.Label($"Server Tick {serverTick}");
-                GUILayout.Space(20);
-                GUILayout.Label($"Diff {diff.Value:0.00}");
-                if (IsServer)
-                    GUILayout.Label($"target {0.0f:0.00}");
-                if (IsClient)
-                    GUILayout.Label($"target {ClientRunner.Debug_DelayInTicks:0.00}");
-
-
-                if (IsClient)
-                {
-                    GUILayout.Space(20);
-                    GUILayout.Label($"scale {ClientRunner.TimeScale:0.00}");
-                    (float rtt, float jitter) = ClientRunner.Debug_RTT.GetAverageAndStandardDeviation();
-                    GUILayout.Label($"RTT {rtt * 1000:0}");
-                    GUILayout.Label($"Jitter {jitter * 1000:0}");
-                    GUILayout.Label($"Target Delay {(rtt + jitter * 2) * 1000:0}");
-                }
-                GUI.enabled = true;
-            }
         }
     }
 }
