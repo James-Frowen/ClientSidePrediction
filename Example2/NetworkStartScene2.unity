@@ -317,6 +317,7 @@ MonoBehaviour:
   ShowServer: 1
   ShowClient: 1
   ShowNoNetwork: 0
+  ShowGui: 1
   simulationMode: 2
   localPhysicsMode: 2
   ServerColor: {r: 1, g: 0, b: 0, a: 0.5019608}
@@ -433,14 +434,6 @@ MonoBehaviour:
     LatencySinFrequency: 2
     JitterSinAmplitude: 0.005
     JitterSinFrequency: 40
-  guiEnabled: 0
-  guiOffset:
-    serializedVersion: 2
-    x: 0
-    y: 140
-    width: 400
-    height: 240
-  guiColor: {r: 0, g: 0, b: 0, a: 0.6}
 --- !u!1 &1422452602
 GameObject:
   m_ObjectHideFlags: 0
