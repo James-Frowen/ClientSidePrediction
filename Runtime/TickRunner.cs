@@ -129,7 +129,6 @@ namespace JamesFrowen.CSP
 
     public class ClientTickRunner : TickRunner
     {
-
         static readonly ILogger logger = LogFactory.GetLogger<ClientTickRunner>();
 
         readonly SimpleMovingAverage _RTTAverage;
@@ -141,9 +140,6 @@ namespace JamesFrowen.CSP
         readonly float positiveThreshold;
         readonly float negativeThreshold;
         readonly float skipAheadThreshold;
-        readonly float skipBackThreshold;
-
-        public float ClientDelay = 2;
 
         bool intialized;
         int latestServerTick;
@@ -160,11 +156,11 @@ namespace JamesFrowen.CSP
         /// </summary>
         public event Action OnTickSkip;
 
-        /// <param name="diffThreshold">how far off client time can be before changing its speed, Good value is half SyncInterval</param>
+        /// <param name="diffThreshold">how many ticks off the client time can be before changing speed, In ticks</param>
         /// <param name="timeScaleModifier">how much to speed up/slow down by is behind/ahead</param>
         /// <param name="skipThreshold">skip ahead to server tick if this far behind</param>
         /// <param name="movingAverageCount">how many ticks used in average, increase or decrease with framerate</param>
-        public ClientTickRunner(float diffThreshold = 0.5f, float timeScaleModifier = 0.01f, float skipThreshold = 10f, int movingAverageCount = 100)
+        public ClientTickRunner(float diffThreshold = 1.5f, float timeScaleModifier = 0.01f, float skipThreshold = 10f, int movingAverageCount = 100)
         {
             // IMPORTANT: most of these values are in tick NOT seconds, so careful when using them
 
@@ -174,7 +170,6 @@ namespace JamesFrowen.CSP
 
             // skip ahead if client fall behind by this many ticks
             skipAheadThreshold = skipThreshold;
-            skipBackThreshold = skipThreshold * 5;
 
             // speed up/slow down up by 0.01 if after/behind
             // we never want to be behind so catch up faster
@@ -184,58 +179,54 @@ namespace JamesFrowen.CSP
             _RTTAverage = new SimpleMovingAverage(movingAverageCount);
         }
 
+        public override void OnUpdate()
+        {
+            // only update client tick if server has sent first state
+            if (intialized)
+                base.OnUpdate();
+        }
+
+        bool CheckOrder(int serverTick)
+        {
+            if (serverTick <= latestServerTick)
+            {
+                logger.LogError($"Received message out of order server:{latestServerTick}, new:{serverTick}");
+                return false;
+            }
+            latestServerTick = serverTick;
+            return true;
+        }
+
         /// <summary>
         /// Updates <see cref="clientScaleTime"/> to keep <see cref="ClientTime"/> in line with <see cref="LatestServerTime"/>
         /// </summary>
         /// <param name="serverTime"></param>
         public override void OnMessage(int serverTick, double clientSendTime)
         {
-#if DEBUG
-            if (serverTick <= latestServerTick)
-            {
-                logger.LogError($"Received message out of order server:{latestServerTick}, new:{serverTick}");
+            if (!CheckOrder(serverTick))
                 return;
-            }
-            latestServerTick = serverTick;
+
+            AddTimeToAverage(clientSendTime);
+#if DEBUG
+            VerboseLog(serverTick, clientSendTime);
 #endif
+
             // if first message set client time to server-diff
             // reset stuff if too far behind
             // todo check this is correct
             if (!intialized)
             {
 #if DEBUG
-                Debug("serverTick,serverGuess,localTick,delayInTicks,delayInSeconds,delayFromLag,delayFromJitter,diff,");
+                Debug("serverTick,serverGuess,localTick,delayInTicks,delayInSeconds,delayFromLag,delayFromJitter,diff,newRTT,");
 #endif
-                InitNew(serverTick, clientSendTime);
+                InitNew(serverTick);
                 return;
             }
 
-            AddTimeToAverage(clientSendTime);
-
-            (float lag, float jitter) = _RTTAverage.GetAverageAndStandardDeviation();
-
-            //public double TargetDelayTicks => (networkTime.Rtt * TickRate) + ClientDelay;
-            // todo use jitter for delay
-            float delayFromJitter = ClientDelay * jitter;
-            float delayFromLag = lag;
-            float delayInSeconds = delayFromLag + delayFromJitter;
-            // +1 tick to make sure we are always ahead
-            float delayInTicks = (delayInSeconds * TickRate) + 1;
-#if DEBUG
-            Debug_DelayInTicks = delayInTicks;
-#endif
-
-            // if OWD=10,delay=2 =>  then server-tick=2*owd+delay => 22
-            // guess what we think server tick was
-            // tick = (seconds*ticks/second) + ticks, units checkout :)
-            float serverGuess = _tick - delayInTicks;
-            // how wrong were we
+            // guess what tick we have to be to reach serever in time
+            float serverGuess = _tick - DelayInTicks();
+            // how far was out guess off?
             float diff = serverTick - serverGuess;
-
-#if DEBUG
-            Debug($"{serverTick},{serverGuess},{_tick},{delayInTicks},{delayInSeconds},{delayFromLag},{delayFromJitter},{diff},");
-#endif
-
 
             // if diff is bad enough, skip ahead
             // todo do we need abs, do also want to skip back if we are very ahead?
@@ -243,15 +234,31 @@ namespace JamesFrowen.CSP
             if (Math.Abs(diff) > skipAheadThreshold)
             {
                 logger.LogWarning($"Client fell behind, skipping ahead. server:{serverTick:0.00} serverGuess:{serverGuess} diff:{diff:0.00}");
-                InitNew(serverTick, clientSendTime);
+                InitNew(serverTick);
                 return;
             }
 
-            // apply scale to correct guess
+            // apply timescale to try get closer to server
             AdjustClientTimeScale(diff);
 
             //todo add trace level
             if (logger.LogEnabled()) logger.Log($"st {serverTick:0.00} sg {serverGuess:0.00} ct {_tick:0.00} diff {diff * 1000:0.0}, wanted:{diff * 1000:0.0}, scale:{TimeScale}");
+        }
+
+        private float DelayInTicks()
+        {
+            (float lag, float jitter) = _RTTAverage.GetAverageAndStandardDeviation();
+
+            // *2 so we have 2 stdDev worth of range
+            float delayFromJitter = jitter * 2;
+            float delayFromLag = lag;
+            float delayInSeconds = delayFromLag + delayFromJitter;
+            // +1 tick to make sure we are always ahead
+            float delayInTicks = (delayInSeconds * TickRate) + 1;
+#if DEBUG
+            Debug_DelayInTicks = delayInTicks;
+#endif
+            return delayInTicks;
         }
 
         private void AddTimeToAverage(double clientSendTime)
@@ -264,14 +271,16 @@ namespace JamesFrowen.CSP
                 Assert.IsTrue(newRTT > 0);
                 _RTTAverage.Add((float)newRTT);
             }
+            else
+            {
+                // just add 150 ms as tick RTT
+                _RTTAverage.Add(0.150f);
+            }
         }
 
-        private void InitNew(int serverTick, double clientSendTime)
+        private void InitNew(int serverTick)
         {
-            AddTimeToAverage(clientSendTime);
-            (float lag, float jitter) = _RTTAverage.GetAverageAndStandardDeviation();
-
-            _tick = Mathf.CeilToInt(serverTick + (lag * TickRate) + 2 /*+2 ticks because we dont want to be behind server guess*/);
+            _tick = Mathf.CeilToInt(serverTick + DelayInTicks());
             TimeScale = normalScale;
             intialized = true;
             // todo do we need to invoke this at start as well as skip?
@@ -297,7 +306,22 @@ namespace JamesFrowen.CSP
                 TimeScale = normalScale;
         }
 
+
 #if DEBUG
+        private void VerboseLog(int serverTick, double clientSendTime)
+        {
+            (float lag, float jitter) = _RTTAverage.GetAverageAndStandardDeviation();
+            float delayFromJitter = jitter * 2;
+            float delayFromLag = lag;
+            float delayInSeconds = delayFromLag + delayFromJitter;
+
+            float serverGuess = _tick - DelayInTicks();
+            float diff = serverTick - serverGuess;
+
+            double newRTT = UnscaledTime - clientSendTime;
+            Debug($"{serverTick},{serverGuess},{_tick},{(float)DelayInTicks()},{delayInSeconds},{delayFromLag},{delayFromJitter},{diff},{newRTT},");
+        }
+
         static StreamWriter _writer = new StreamWriter(Path.Combine(Application.persistentDataPath, "ClientTickRunner.log")) { AutoFlush = true };
         void Debug(string line)
         {
