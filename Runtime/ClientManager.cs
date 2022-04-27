@@ -135,14 +135,20 @@ namespace JamesFrowen.CSP
             {
                 while (reader.CanReadBytes(1))
                 {
-                    NetworkBehaviour networkBehaviour = reader.ReadNetworkBehaviour();
-                    if (networkBehaviour == null)
+                    uint netId = reader.ReadPackedUInt32();
+                    Debug.Assert(netId != 0);
+                    byte componentIndex = reader.ReadByte();
+
+                    if (!world.TryGetIdentity(netId, out NetworkIdentity identity))
                     {
                         // todo fix spawning 
                         // this breaks if state message is received before Mirage's spawn messages
-                        logger.LogWarning($"(TODO FIX THIS) had null networkbehaviour, Stoping ReceiveState");
+                        logger.LogWarning($"(TODO FIX THIS) Could not find NetworkIdentity with id={netId}, Stoping ReceiveState");
                         return;
                     }
+
+                    NetworkBehaviour networkBehaviour = identity.NetworkBehaviours[componentIndex];
+
 
                     Debug.Assert(behaviours.ContainsKey(networkBehaviour));
                     Debug.Assert(networkBehaviour is IPredictionBehaviour);
@@ -158,6 +164,16 @@ namespace JamesFrowen.CSP
 
         void Resimulate(int from, int to)
         {
+            if (from > to)
+            {
+                logger.LogError($"Cant resimulate because 'from' was after 'to'. From:{from} To:{to}");
+                return;
+            }
+            if (to - from > Helper.BufferSize)
+            {
+                logger.LogError($"Cant resimulate more than BufferSize. From:{from} To:{to}");
+                return;
+            }
             if (logger.LogEnabled()) logger.Log($"Resimulate from {from} to {to}");
 
             foreach (IPredictionBehaviour behaviour in behaviours.Values)
@@ -168,9 +184,6 @@ namespace JamesFrowen.CSP
             clientTime.IsResimulation = true;
             for (int tick = from; tick <= to; tick++)
             {
-                if (tick - from > Helper.BufferSize)
-                    throw new OverflowException("Inputs overflowed buffer");
-
                 Simulate(tick);
             }
             clientTime.IsResimulation = false;
