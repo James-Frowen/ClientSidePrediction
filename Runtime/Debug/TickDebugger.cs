@@ -16,13 +16,13 @@ namespace JamesFrowen.CSP
 
         ExponentialMovingAverage diff = new ExponentialMovingAverage(10);
 
-        TickDebuggerGui gui;
+        TickDebuggerOutput gui;
 
         private void Awake()
         {
             Identity.OnStartClient.AddListener(OnStartClient);
             Identity.OnStartServer.AddListener(OnStartServer);
-            gui = GetComponent<TickDebuggerGui>();
+            gui = GetComponent<TickDebuggerOutput>();
         }
         private void Update()
         {
@@ -37,11 +37,13 @@ namespace JamesFrowen.CSP
 
             if (IsClient)
             {
-                gui.ClientDelayInTicks = ClientRunner.Debug_DelayInTicks;
                 gui.ClientTimeScale = ClientRunner.TimeScale;
+#if DEBUG
+                gui.ClientDelayInTicks = ClientRunner.Debug_DelayInTicks;
                 (float average, float stdDev) = ClientRunner.Debug_RTT.GetAverageAndStandardDeviation();
                 gui.ClientRTT = average;
                 gui.ClientJitter = stdDev;
+#endif
             }
         }
         void OnStartServer()

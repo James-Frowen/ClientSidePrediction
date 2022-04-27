@@ -61,7 +61,7 @@ namespace JamesFrowen.CSP.Examples
             PredictionManager manager = go.AddComponent<PredictionManager>();
             if (ShowGui)
             {
-                manager.Gui = go.AddComponent<TickDebuggerGui>();
+                manager.DebugOutput = go.AddComponent<TickDebuggerGui>();
             }
             manager.Client = client;
             manager.Server = server;

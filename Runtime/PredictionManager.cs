@@ -19,11 +19,10 @@ namespace JamesFrowen.CSP
     [Serializable]
     public class ClientTickSettings
     {
-        public int clientDelay = 2;
-        public float diffThreshold = 0.5f;
+        public float diffThreshold = 1.5f;
         public float timeScaleModifier = 0.01f;
         public float skipThreshold = 10f;
-        public int movingAverageCount = 100;
+        public int movingAverageCount = 25;
     }
     public class PredictionManager : MonoBehaviour
     {
@@ -44,7 +43,7 @@ namespace JamesFrowen.CSP
         [SerializeField] ClientTickSettings _clientTickSettings = new ClientTickSettings();
 
         [Header("Debug")]
-        public TickDebuggerGui Gui;
+        public TickDebuggerOutput DebugOutput;
 
         ClientManager clientManager;
         ServerManager serverManager;
@@ -144,7 +143,6 @@ namespace JamesFrowen.CSP
                     )
                 {
                     TickRate = TickRate,
-                    ClientDelay = _clientTickSettings.clientDelay,
                 };
                 clientManager = new ClientManager(_simulation, clientRunner, Client.World, Client.Player, Client.MessageHandler);
                 _tickRunner = clientRunner;
@@ -178,37 +176,39 @@ namespace JamesFrowen.CSP
 #endif
         }
 
+#if DEBUG
         private void SetGuiValues()
         {
-            if (Gui != null)
+            if (TickRunner != null && DebugOutput != null)
             {
-                Gui.IsServer = Server != null && Server.Active;
-                Gui.IsClient = (Client != null && Client.Active) && !(Server != null && Server.Active);
+                DebugOutput.IsServer = Server != null && Server.Active;
+                DebugOutput.IsClient = (Client != null && Client.Active) && !(Server != null && Server.Active);
 
-                if (Gui.IsServer)
+                if (DebugOutput.IsServer)
                 {
-                    Gui.ClientTick = serverManager.Debug_FirstPlayertracker?.lastReceivedInput ?? 0;
-                    Gui.ServerTick = TickRunner.Tick;
-                    Gui.Diff = Gui.ClientTick - Gui.ServerTick;
+                    DebugOutput.ClientTick = serverManager.Debug_FirstPlayertracker?.lastReceivedInput ?? 0;
+                    DebugOutput.ServerTick = TickRunner.Tick;
+                    DebugOutput.Diff = DebugOutput.ClientTick - DebugOutput.ServerTick;
                 }
-                if (Gui.IsClient)
+                if (DebugOutput.IsClient)
                 {
-                    Gui.ClientTick = TickRunner.Tick;
-                    Gui.ServerTick = clientManager.Debug_ServerTick;
-                    Gui.Diff = Gui.ClientTick - Gui.ServerTick;
+                    DebugOutput.ClientTick = TickRunner.Tick;
+                    DebugOutput.ServerTick = clientManager.Debug_ServerTick;
+                    DebugOutput.Diff = DebugOutput.ClientTick - DebugOutput.ServerTick;
                 }
 
 
-                if (Gui.IsClient)
+                if (DebugOutput.IsClient)
                 {
                     var clientRunner = (ClientTickRunner)TickRunner;
-                    Gui.ClientDelayInTicks = clientRunner.Debug_DelayInTicks;
-                    Gui.ClientTimeScale = clientRunner.TimeScale;
+                    DebugOutput.ClientTimeScale = clientRunner.TimeScale;
+                    DebugOutput.ClientDelayInTicks = clientRunner.Debug_DelayInTicks;
                     (float average, float stdDev) = clientRunner.Debug_RTT.GetAverageAndStandardDeviation();
-                    Gui.ClientRTT = average;
-                    Gui.ClientJitter = stdDev;
+                    DebugOutput.ClientRTT = average;
+                    DebugOutput.ClientJitter = stdDev;
                 }
             }
         }
+#endif
     }
 }

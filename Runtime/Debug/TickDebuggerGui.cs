@@ -1,21 +1,9 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace JamesFrowen.CSP
-{
-    public class TickDebuggerGui : MonoBehaviour
+{ 
+    public class TickDebuggerGui : TickDebuggerOutput
     {
-        public bool IsServer;
-        public bool IsClient;
-
-        public int ClientTick;
-        public int ServerTick;
-        public double Diff;
-
-        public float ClientDelayInTicks;
-        public float ClientTimeScale;
-        public float ClientRTT;
-        public float ClientJitter;
-
         private void OnGUI()
         {
             int x = IsServer ? 100 : 400;
