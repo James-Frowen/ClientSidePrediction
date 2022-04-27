@@ -15,6 +15,21 @@ namespace JamesFrowen.CSP
 
         public float TickRate = 50;
 
+        /// <summary>
+        /// Max milliseconds per frame to process. Wont start new Ticks if current frame is over this limit.
+        /// <para>
+        /// This can avoid freezes if ticks start to take a long time.
+        /// </para>
+        /// <para>
+        /// The runner will try to run <see cref="TickRate"/> per second, but if they take longer than 1 second then each frame will get longer and longer.
+        /// This limit will stops extra ticks in that frame from being processed, allowing other parts of the applications (eg message processing).
+        /// <para>
+        /// Any stopped ticks will run next frame instead
+        /// </para>
+        /// </para>
+        /// </summary>
+        public float MaxFrameTime = 200;
+
         protected int _tick;
 
         /// <summary>
@@ -70,20 +85,18 @@ namespace JamesFrowen.CSP
         bool IPredictionTime.IsResimulation => false;
         float IPredictionTime.FixedTime => Tick * FixedDeltaTime;
 
-        public void OnUpdate()
+        double GetCurrentTime()
         {
-            double now = stopwatch.Elapsed.TotalSeconds;
+            return stopwatch.Elapsed.TotalSeconds;
+        }
+
+        public virtual void OnUpdate()
+        {
+            double now = GetCurrentTime();
+            int startTick = _tick;
+            double max = now + (MaxFrameTime / 1000f);
             double delta = now - lastFrame;
             lastFrame = now;
-#if DEBUG
-            if (delta > FixedDeltaTime * 100)
-            {
-                // if more than 100 frames behind then skip
-                // this is is only to stop editor breaking if using breakpoints
-                if (logger.LogEnabled()) logger.LogError($"Time Delta was {delta}, skipping tick Updates");
-                return;
-            }
-#endif
 
             tickTimer += delta * TimeScale;
             while (tickTimer > FixedDeltaTime)
@@ -99,6 +112,12 @@ namespace JamesFrowen.CSP
                     onTick?.Invoke(_tick);
                     onPostTick?.Invoke(_tick);
                     lastInvokedTick = _tick;
+                }
+
+                if (GetCurrentTime() > max)
+                {
+                    if (logger.WarnEnabled()) logger.LogWarning($"Took longer than {MaxFrameTime}ms to process frame. Processed {_tick - startTick} ticks in {(GetCurrentTime() - now) * 1000f}ms");
+                    break;
                 }
             }
         }
