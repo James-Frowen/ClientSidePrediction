@@ -12,21 +12,5 @@
   "dependencies": {
     "com.miragenet.mirage": "123.0.1"
   },
-  "samples": [
-    {
-      "displayName": "Example 1",
-      "description": "Simple 2d example",
-      "path": "../Example1"
-    },
-    {
-      "displayName": "Example 2",
-      "description": "3d example with physics",
-      "path": "../Example2"
-    },
-    {
-      "displayName": "Example Ticks",
-      "description": "Example showing tick system",
-      "path": "../ExampleTicks"
-    }
-  ]
+  "samples": []
 }
