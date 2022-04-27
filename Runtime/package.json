@@ -1,0 +1,32 @@
+{
+  "name": "com.james-frowen.clientsideprediction",
+  "displayName": "Client Side Prediction",
+  "version": "0",
+  "unity": "2019.4",
+  "description": "Client side prediction system for mirage networking",
+  "author": "James Frowen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/James-Frowen/ClientSidePrediction"
+  },
+  "dependencies": {
+    "com.miragenet.mirage": "123.0.1"
+  },
+  "samples": [
+    {
+      "displayName": "Example 1",
+      "description": "Simple 2d example",
+      "path": "../Example1"
+    },
+    {
+      "displayName": "Example 2",
+      "description": "3d example with physics",
+      "path": "../Example2"
+    },
+    {
+      "displayName": "Example Ticks",
+      "description": "Example showing tick system",
+      "path": "../ExampleTicks"
+    }
+  ]
+}
