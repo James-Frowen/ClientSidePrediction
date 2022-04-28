@@ -20,7 +20,7 @@ namespace JamesFrowen.CSP
 
     public class TickNotifyToken : INotifyCallBack
     {
-        static Pool<TickNotifyToken> pool = new Pool<TickNotifyToken>((_, __) => new TickNotifyToken(), 0, 10, Helper.BufferSize, LogFactory.GetLogger<TickNotifyToken>());
+        static Pool<TickNotifyToken> pool = new Pool<TickNotifyToken>((_, __) => new TickNotifyToken(), 0, 10, 1000, LogFactory.GetLogger<TickNotifyToken>());
         public static INotifyCallBack GetToken(ITickNotifyTracker tracker, int tick)
         {
             TickNotifyToken token = pool.Take();
