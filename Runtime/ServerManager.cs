@@ -240,6 +240,7 @@ namespace JamesFrowen.CSP
         static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
 
         readonly PredictionBehaviourBase<TInput, TState> behaviour;
+        readonly int _bufferSize;
         readonly ServerManager _manager;
         NullableRingBuffer<TInput> _inputBuffer;
         NullableRingBuffer<TState> _stateBuffer;
@@ -258,10 +259,19 @@ namespace JamesFrowen.CSP
         {
             _manager = manager;
             this.behaviour = behaviour;
+            _bufferSize = bufferSize;
 
             _stateBuffer = new NullableRingBuffer<TState>(bufferSize, behaviour as ISnapshotDisposer<TState>);
             if (behaviour.UseInputs())
                 _inputBuffer = new NullableRingBuffer<TInput>(bufferSize, behaviour as ISnapshotDisposer<TInput>);
+            else // listen just incase auth is given late
+                behaviour.Identity.OnOwnerChanged.AddListener(OnOwnerChanged);
+        }
+        void OnOwnerChanged(INetworkPlayer newOwner)
+        {
+            // create buffer and remove listener
+            _inputBuffer = new NullableRingBuffer<TInput>(_bufferSize, behaviour as ISnapshotDisposer<TInput>);
+            behaviour.Identity.OnOwnerChanged.RemoveListener(OnOwnerChanged);
         }
 
         void IServerController.WriteState(NetworkWriter writer, int tick)
