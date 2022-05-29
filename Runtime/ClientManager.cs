@@ -48,7 +48,7 @@ namespace JamesFrowen.CSP
         readonly IPredictionTime time;
         readonly INetworkPlayer _clientPlayer;
         readonly ClientTickRunner clientTickRunner;
-        /// <summary>Time used for physics, includes resimilation time. Driven by <see cref="time"/></summary>
+        /// <summary>Time used for physics, includes resimulation time. Driven by <see cref="time"/></summary>
         readonly ClientTime clientTime;
         readonly NetworkWorld world;
 
@@ -56,6 +56,8 @@ namespace JamesFrowen.CSP
         bool unappliedTick;
         const int maxInputPerPacket = 8;
         int ackedInput = Helper.NO_VALUE;
+
+        public bool ReadyForWorldState = true;
 
         int ITickNotifyTracker.LastAckedTick { get => ackedInput; set => ackedInput = value; }
 
@@ -131,6 +133,10 @@ namespace JamesFrowen.CSP
             if (logger.LogEnabled()) logger.Log($"received STATE for {tick}");
             unappliedTick = true;
             lastReceivedTick = tick;
+
+            // no world state sent
+            if (statePayload.Array == null)
+                return;
             using (PooledNetworkReader reader = NetworkReaderPool.GetReader(statePayload, world))
             {
                 while (reader.CanReadBytes(1))
@@ -271,6 +277,7 @@ namespace JamesFrowen.CSP
                     clientTime = time.UnscaledTime,
                     length = length,
                     payload = writer.ToArraySegment(),
+                    ready = ReadyForWorldState,
                 };
 
                 INotifyCallBack token = TickNotifyToken.GetToken(this, tick);

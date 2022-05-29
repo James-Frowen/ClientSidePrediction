@@ -136,11 +136,15 @@ namespace JamesFrowen.CSP
                     behaviour.ServerController.WriteState(writer, tick);
                 }
 
-                msg.state = writer.ToArraySegment();
+                var payload = writer.ToArraySegment();
                 for (int i = 0; i < _players.Count; i++)
                 {
                     INetworkPlayer player = _players[i];
                     PlayerTimeTracker tracker = _playerTracker[player];
+
+                    // dont send if not ready
+                    msg.state = tracker.ReadyForWorldState ? payload : default;
+
                     // set client time for each client, 
                     // todo find way to avoid serialize multiple times
                     msg.ClientTime = tracker.LastReceivedClientTime;
@@ -158,6 +162,8 @@ namespace JamesFrowen.CSP
             // check if inputs have arrived in time and in order, otherwise we can't do anything with them.
             if (!ValidateInputTick(tracker, message.tick))
                 return;
+
+            tracker.ReadyForWorldState = message.ready;
 
             int length = message.length;
             using (PooledNetworkReader reader = NetworkReaderPool.GetReader(message.payload, _world))
@@ -227,6 +233,8 @@ namespace JamesFrowen.CSP
             public int lastReceivedInput = Helper.NO_VALUE;
 
             public int LastAckedTick { get; set; }
+
+            public bool ReadyForWorldState;
         }
     }
 
