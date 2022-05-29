@@ -179,6 +179,12 @@ namespace JamesFrowen.CSP
             _RTTAverage = new SimpleMovingAverage(movingAverageCount);
         }
 
+        public void ResetTime()
+        {
+            _RTTAverage.Reset();
+            intialized = false;
+        }
+
         public override void OnUpdate()
         {
             // only update client tick if server has sent first state

@@ -35,6 +35,10 @@ namespace JamesFrowen.CSP
         [Header("Simulation")]
         public SimulationMode physicsMode;
 
+        [Header("Start Settings")]
+        [Tooltip("Does the client start ready? or does it wait for SetReady to be called")]
+        [SerializeField] bool clientIsReady = true;
+
         [Header("Tick Settings")]
         public float TickRate = 50;
         [Tooltip("How Often to send pings, used to make sure inputs are delay by correct amount")]
@@ -170,6 +174,20 @@ namespace JamesFrowen.CSP
             }
             _tickRunner = null;
             clientManager = null;
+        }
+
+        public void SetClientReady(bool ready)
+        {
+            clientIsReady = ready;
+            if (clientManager != null)
+            {
+                clientManager.ReadyForWorldState = ready;
+            }
+
+            if (ready && _tickRunner != null)
+            {
+                ((ClientTickRunner)_tickRunner).ResetTime();
+            }
         }
 
         private void Update()
