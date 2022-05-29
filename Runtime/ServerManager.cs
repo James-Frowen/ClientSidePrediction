@@ -125,15 +125,31 @@ namespace JamesFrowen.CSP
 
         private void SendState(int tick)
         {
+            const int MAX_SIZE = 1157; // max notify size
             var msg = new WorldState() { tick = tick };
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
             {
+                int size = 0;
                 foreach (KeyValuePair<NetworkBehaviour, IPredictionBehaviour> kvp in behaviours)
                 {
                     writer.WriteNetworkBehaviour(kvp.Key);
 
                     IPredictionBehaviour behaviour = kvp.Value;
                     behaviour.ServerController.WriteState(writer, tick);
+
+                    if (logger.LogEnabled())
+                    {
+                        int newSize = writer.ByteLength;
+                        int behaviourSize = newSize - size;
+                        size = newSize;
+                        logger.Log($"Writing Behaviour:{kvp.Key.name} NetId:{kvp.Key.NetId} size:{behaviourSize}");
+                    }
+
+                    if (writer.ByteLength > MAX_SIZE)
+                    {
+                        logger.LogError($"Can't send state over max size of {MAX_SIZE}.");
+                        return;
+                    }
                 }
 
                 var payload = writer.ToArraySegment();
