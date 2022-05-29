@@ -33,9 +33,14 @@ namespace JamesFrowen.CSP
     {
         public int tick;
         public double clientTime;
+        public bool ready;
 
+        /// <summary>
+        /// How many inputs were sent in payload
+        /// </summary>
         [BitCountFromRange(1, 8)]
         public int length;
+
         /// <summary>
         /// collection of <see cref="InputMessage"/>
         /// </summary>
