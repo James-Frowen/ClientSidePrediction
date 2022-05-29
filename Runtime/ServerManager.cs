@@ -125,6 +125,7 @@ namespace JamesFrowen.CSP
 
         private void SendState(int tick)
         {
+            // todo get max size from config
             const int MAX_SIZE = 1157; // max notify size
             var msg = new WorldState() { tick = tick };
             using (PooledNetworkWriter writer = NetworkWriterPool.GetWriter())
