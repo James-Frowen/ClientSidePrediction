@@ -131,6 +131,10 @@ namespace JamesFrowen.CSP
     {
         static readonly ILogger logger = LogFactory.GetLogger<ClientTickRunner>();
 
+        // this number neeeds to be less than buffer size in order for resimulation to work correctly
+        // this number will clamp RTT average to a max value, so it should recover faster after RTT is back to normal
+        const float MAX_RTT = 1.0f;
+
         readonly SimpleMovingAverage _RTTAverage;
 
         readonly float fastScale = 1.01f;
@@ -274,6 +278,12 @@ namespace JamesFrowen.CSP
             if (clientSendTime != 0)
             {
                 double newRTT = UnscaledTime - clientSendTime;
+                if (newRTT > MAX_RTT)
+                {
+                    if (logger.WarnEnabled())
+                        logger.LogWarning($"return trip time is over max of {MAX_RTT}s, value:{newRTT * 1000:0.0}ms");
+                    newRTT = MAX_RTT;
+                }
                 Assert.IsTrue(newRTT > 0);
                 _RTTAverage.Add((float)newRTT);
             }
