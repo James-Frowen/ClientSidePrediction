@@ -127,6 +127,10 @@ namespace JamesFrowen.CSP
             if (hostMode)
             {
                 serverManager.SetHostMode();
+
+                // todo dont send world state to host
+                Client.MessageHandler.RegisterHandler<WorldState>((msg) => { });
+
                 // todo clean up host stuff in ClientManager
                 // todo add throw check inside ClientManager/clientset up to throw if server is active (host mode just uses server controller+behaviour)
                 //clientManager = new ClientManager(hostMode, _simulation, _tickRunner, Client.World, Client.MessageHandler);
