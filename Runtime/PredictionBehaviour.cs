@@ -9,6 +9,7 @@
 
 using System;
 using Mirage;
+using Mirage.Events;
 
 namespace JamesFrowen.CSP
 {
@@ -45,6 +46,7 @@ namespace JamesFrowen.CSP
         ServerController<TInput, TState> _serverController;
         ServerManager _serverManager;
         ClientManager _clientManager;
+        AddLateEvent _onPredictionSetup = new AddLateEvent();
 
         // annoying cs stuff to have internal property and interface
         internal IClientController ClientController => _clientController;
@@ -56,6 +58,14 @@ namespace JamesFrowen.CSP
         internal ClientManager ClientManager => _clientManager;
         ServerManager IPredictionBehaviour.ServerManager => _serverManager;
         ClientManager IPredictionBehaviour.ClientManager => _clientManager;
+
+        /// <summary>
+        /// Invoked at the end of IPredictionBehaviour setup methods.
+        /// <para>
+        /// <see cref="PredictionTime"/> and other properties will be set and ready to use when this event is called.
+        /// </para>
+        /// </summary>
+        public IAddLateEvent OnPredictionSetup => _onPredictionSetup;
 
         public IPredictionTime PredictionTime { get; set; }
 
@@ -134,18 +144,21 @@ namespace JamesFrowen.CSP
             // you can override this function to apply moving between state before-re-simulatution and after.
         }
 
-
         void IPredictionBehaviour.ServerSetup(ServerManager serverManager, IPredictionTime time)
         {
             PredictionTime = time;
             _serverManager = serverManager;
             _serverController = new ServerController<TInput, TState>(ServerManager, this, Helper.BufferSize);
+
+            _onPredictionSetup.Invoke();
         }
         void IPredictionBehaviour.ClientSetup(ClientManager clientManager, IPredictionTime time)
         {
             PredictionTime = time;
             _clientManager = clientManager;
             _clientController = new ClientController<TInput, TState>(this, Helper.BufferSize);
+
+            _onPredictionSetup.Invoke();
         }
 
         void IPredictionBehaviour.CleanUp()
@@ -155,6 +168,8 @@ namespace JamesFrowen.CSP
             _clientController = null;
             _serverManager = null;
             _clientManager = null;
+
+            _onPredictionSetup.Reset();
         }
     }
 
