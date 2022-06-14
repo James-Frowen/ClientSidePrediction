@@ -302,6 +302,9 @@ namespace JamesFrowen.CSP
 
         int lastReceivedTick = Helper.NO_VALUE;
         TState lastReceivedState;
+
+        bool hasSimulatedLocally;
+        bool hasBeforeResimulateState;
         TState beforeResimulateState;
 
         private int lastInputTick;
@@ -351,14 +354,14 @@ namespace JamesFrowen.CSP
         {
             ThrowIfHostMode();
 
-            // if receivedTick = 100
-            // then we want to Simulate (100->101)
-            // so we pass tick 100 into Simulate
-            if (behaviour.EnableResimulationTransition)
+            // we only want to do store before re-simulatuion state if we have simulated any steps locally.
+            // otherwise we just want to apply state from server
+            if (hasSimulatedLocally && behaviour.EnableResimulationTransition)
+            {
                 beforeResimulateState = behaviour.GatherState();
+                hasBeforeResimulateState = true;
+            }
 
-            // if lastSimTick = 105
-            // then our last sim step will be (104->105)
             behaviour.ApplyState(lastReceivedState);
 
             if (behaviour is IDebugPredictionAfterImage debug)
@@ -369,7 +372,7 @@ namespace JamesFrowen.CSP
         {
             ThrowIfHostMode();
 
-            if (behaviour.EnableResimulationTransition)
+            if (hasBeforeResimulateState && behaviour.EnableResimulationTransition)
             {
                 TState next = behaviour.GatherState();
                 behaviour.ResimulationTransition(beforeResimulateState, next);
@@ -382,6 +385,7 @@ namespace JamesFrowen.CSP
                     disposer.DisposeState(beforeResimulateState);
                 }
                 beforeResimulateState = default;
+                hasBeforeResimulateState = false;
             }
         }
 
@@ -400,6 +404,7 @@ namespace JamesFrowen.CSP
                 behaviour.ApplyInputs(input, previous);
             }
             behaviour.NetworkFixedUpdate();
+            hasSimulatedLocally = true;
         }
 
         public void InputTick(int tick)
