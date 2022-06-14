@@ -362,7 +362,9 @@ namespace JamesFrowen.CSP
                 hasBeforeResimulateState = true;
             }
 
-            behaviour.ApplyState(lastReceivedState);
+            // only apply ServerState, if one has been received
+            if (lastReceivedTick != Helper.NO_VALUE)
+                behaviour.ApplyState(lastReceivedState);
 
             if (behaviour is IDebugPredictionAfterImage debug)
                 debug.CreateAfterImage(lastReceivedState, new Color(1f, 0.4f, 0f));
