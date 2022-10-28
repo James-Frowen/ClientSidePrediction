@@ -25,7 +25,7 @@ namespace JamesFrowen.CSP.Debugging
         public static void ToFile(int tick, int* ptr, int intSize)
         {
             CheckDir(Dir);
-            UniTask.RunOnThreadPool(() => ToFileInternal(tick, ptr, intSize));
+            UniTask.RunOnThreadPool(() => ToFileInternal(tick, ptr, intSize)).Forget();
         }
 
         private static void ToFileInternal(int tick, int* ptr, int intSize)
@@ -33,7 +33,7 @@ namespace JamesFrowen.CSP.Debugging
             try
             {
                 if (buffer == null)
-                    buffer = new byte[intSize];
+                    buffer = new byte[intSize * 4];
                 if (buffer.Length < intSize * 4)
                     Array.Resize(ref buffer, intSize * 4);
 
