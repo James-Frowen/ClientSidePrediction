@@ -425,7 +425,9 @@ namespace JamesFrowen.CSP
 
         private void InitNew(int serverTick)
         {
-            _tick = Mathf.CeilToInt(serverTick + DelayInTicks());
+            _time = serverTick + DelayInTicks();
+            _tick = Mathf.CeilToInt((float)_time);
+
             // todo do we need to also set _time here?
             TimeScaleMultiple = _normalScale;
             _intialized = true;
