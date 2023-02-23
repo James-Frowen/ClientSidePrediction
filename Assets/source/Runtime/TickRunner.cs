@@ -383,8 +383,9 @@ namespace JamesFrowen.CSP
             var delayFromJitter = jitter * 2;
             var delayFromLag = lag;
             var delayInSeconds = delayFromLag + delayFromJitter;
-            // +1 tick to make sure we are always ahead
-            var delayInTicks = (delayInSeconds * TickRate) + 1;
+            // +2 tick to make sure we are always ahead
+            // we set time to be delay, and tick to be floor of that, so need +2
+            var delayInTicks = (delayInSeconds * TickRate) + 2;
 
 
             if (delayInTicks > MAX_TICK_DELAY)
@@ -427,7 +428,7 @@ namespace JamesFrowen.CSP
         {
             var newTick = serverTick + DelayInTicks();
             _time = (double)newTick / TickRate;
-            _tick = Mathf.CeilToInt(newTick);
+            _tick = Mathf.FloorToInt(newTick);
 
             // todo do we need to also set _time here?
             TimeScaleMultiple = _normalScale;
