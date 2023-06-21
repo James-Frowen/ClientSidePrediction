@@ -220,9 +220,7 @@ namespace JamesFrowen.CSP
                 }
             }
 
-            if (logger.LogEnabled()) logger.Log($"TickRunner (tick={_tick}): {_tick - startTick} ticks in {(GetCurrentTime() - now) * 1000f}ms");
-
-
+            if (logger.LogEnabled()) logger.Log($"TickRunner (tick={_tick}): {_tick - startTick} ticks in {(GetCurrentTime() - now) * 1000f:0.00}ms");
 
             AfterAllTicks?.Invoke();
         }
