@@ -239,7 +239,13 @@ namespace JamesFrowen.CSP
 
                 // we dont need to
                 var ptr = snapshot.GetStateAtTick(tick);
-                anyChanged |= UnsafeHelper.CopyAndCheckChanged(readPtr, ptr, snapshot.IntSizePerTick);
+                var changed = UnsafeHelper.CopyAndCheckChanged(readPtr, ptr, snapshot.IntSizePerTick);
+                anyChanged |= changed;
+
+                if (changed && logger.LogEnabled())
+                {
+                    logger.Log($"Changed (netId:{header->NetId}) {snapshot.Identity.name}");
+                }
 
                 readPtr += snapshot.IntSizePerTick;
 
