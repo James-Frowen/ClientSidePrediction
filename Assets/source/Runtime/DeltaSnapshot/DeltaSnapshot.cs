@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using JamesFrowen.CSP.Alloc;
 using Mirage.Logging;
 using Mirage.Serialization;
@@ -790,6 +791,174 @@ namespace JamesFrowen.DeltaSnapshot
                         toPtr[i] = fromPtr[i];
                     }
                 }
+            }
+        }
+    }
+
+    public unsafe class DeltaSnapshot_BinaryTree : IDeltaSnapshot
+    {
+        private const int BLOCK_SIZE = 6;
+        private static readonly ILogger logger = LogFactory.GetLogger<DeltaSnapshot_LossyFloats_Easy>();
+
+
+        public void WriteDelta_v1(NetworkWriter writer, int intSize, int* from, int* to)
+        {
+            var counts = stackalloc int*[10];
+            var halfWay = stackalloc int[10];
+            var current = 2;
+            for (var i = 0; i < 10; i++)
+            {
+                var count0 = stackalloc int[current];
+                counts[i] = count0;
+                halfWay[i] = intSize / current;
+
+                current *= 2;
+            }
+        }
+        [StructLayout(LayoutKind.Explicit, Size = 8)]
+        private struct Node
+        {
+            [FieldOffset(0)]
+            public int ParentIndex;
+            [FieldOffset(4)]
+            public int Count;
+
+            public Node(int parentIndex) : this()
+            {
+                ParentIndex = parentIndex;
+            }
+        }
+
+        private Node[] _nodes;
+        public void WriteDelta_v2(NetworkWriter writer, int intSize, int* from, int* to)
+        {
+            const int depth = 10;
+            if (_nodes == null)
+            {
+                var count = 1 << (depth + 1 - 2);
+                _nodes = new Node[count];
+
+                // 2 root nodes, because we dont need to store the root node
+                _nodes[0] = new Node(-1);
+                _nodes[1] = new Node(-1);
+
+                // Initialize child nodes
+                for (var i = 0; i < count - 2; i++)
+                {
+                    var index = i + 2;
+                    var parentIndex = i / 2;
+
+                    _nodes[index] = new Node(parentIndex);
+                }
+            }
+
+            var diff = stackalloc int[intSize];
+            for (var i = 0; i < intSize; i++)
+            {
+                diff[i] = to[i] - from[i];
+                var diffZero = diff[i] == 0;
+
+                if (diffZero)
+                    continue;
+
+                var value = diff[i];
+
+                // Traverse the tree and update counts
+                var index = 2;
+                while (index < _nodes.Length)
+                {
+                    _nodes[index].Count++;
+
+                    // Update the parent node's count
+                    var parentIndex = _nodes[index].ParentIndex;
+                    if (parentIndex >= 0)
+                    {
+                        _nodes[parentIndex].Count++;
+                    }
+
+                    // Determine the next child index based on the value
+                    index = (value < _nodes[index].Count) ? index * 2 : (index * 2) + 1;
+                }
+            }
+        }
+
+        //public void WriteDelta_v3_slow(NetworkWriter writer, int intSize, int* from, int* to)
+        public void WriteDelta(NetworkWriter writer, int intSize, int* from, int* to)
+        {
+            var diff = stackalloc int[intSize];
+            for (var i = 0; i < intSize; i++)
+            {
+                diff[i] = to[i] - from[i];
+                var diffZero = diff[i] == 0;
+            }
+            WriteLeftRight(writer, intSize, diff);
+        }
+
+        private static void WriteLeftRight(NetworkWriter writer, int intSize, int* diff)
+        {
+            if (intSize == 1)
+            {
+                writer.WritePackedInt32(diff[0]);
+                return;
+            }
+
+            var halfway = intSize / 2;
+            WriteRecursive(writer, halfway, diff);
+            WriteRecursive(writer, halfway, diff + halfway);
+        }
+        private static void WriteRecursive(NetworkWriter writer, int intSize, int* diff)
+        {
+            for (var i = 0; i < intSize; i++)
+            {
+                if (diff[i] == 0)
+                    continue;
+
+                writer.WriteBoolean(true);
+                WriteLeftRight(writer, intSize, diff);
+                return;
+            }
+
+            writer.WriteBoolean(false);
+        }
+
+        public void ReadDelta(NetworkReader reader, int intSize, int* from, int* to)
+        {
+            var diff = stackalloc int[intSize];
+            ReadLeftRight(reader, intSize, diff);
+            for (var i = 0; i < intSize; i++)
+            {
+                to[i] = from[i] + diff[i];
+            }
+        }
+        private static void ReadLeftRight(NetworkReader reader, int intSize, int* diff)
+        {
+            if (intSize == 1)
+            {
+                diff[0] = reader.ReadPackedInt32();
+                return;
+            }
+
+            var halfway = intSize / 2;
+            ReadRecursive(reader, halfway, diff);
+            ReadRecursive(reader, halfway, diff + halfway);
+        }
+
+        private static void ReadRecursive(NetworkReader reader, int intSize, int* diff)
+        {
+            for (var i = 0; i < intSize; i++)
+            {
+                var diffNonZero = reader.ReadBoolean();
+                if (!diffNonZero)
+                    continue;
+
+                ReadLeftRight(reader, intSize, diff);
+                return;
+            }
+
+            // All differences are zero
+            for (var i = 0; i < intSize; i++)
+            {
+                diff[i] = 0;
             }
         }
     }
