@@ -123,7 +123,7 @@ namespace JamesFrowen.CSP
             serverManager.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
 
             // we need to add players because serverManager keeps track of a list internally
-            Server.Connected.AddListener(serverManager.AddPlayer);
+            Server.Authenticated.AddListener(serverManager.AddPlayer);
             Server.Disconnected.AddListener(serverManager.RemovePlayer);
 
             _tickRunner.BeforeAllTicks += Server.UpdateReceive;
@@ -148,7 +148,7 @@ namespace JamesFrowen.CSP
             }
 
             // make sure to remove listens before setting to null
-            Server.Connected.RemoveListener(serverManager.AddPlayer);
+            Server.Authenticated.RemoveListener(serverManager.AddPlayer);
             Server.Disconnected.RemoveListener(serverManager.RemovePlayer);
 
             _tickRunner = null;

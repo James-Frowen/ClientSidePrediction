@@ -120,7 +120,7 @@ namespace JamesFrowen.CSP.Debugging
             };
             Server.World.onSpawn += ChangeObjectColor;
             Server.World.SpawnedIdentities.ToList().ForEach(ChangeObjectColor);
-            Server.Connected.AddListener(player =>
+            Server.Authenticated.AddListener(player =>
             {
                 var clone = Instantiate(prefab);
                 SceneManager.MoveGameObjectToScene(clone, serverScene);
