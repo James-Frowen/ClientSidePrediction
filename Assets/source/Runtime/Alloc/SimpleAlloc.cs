@@ -17,7 +17,6 @@ namespace JamesFrowen.CSP.Alloc
 {
     public sealed unsafe class SimpleAlloc : IAllocator
     {
-        private const string TAG = "[SimpleAlloc]";
         private static readonly ILogger logger = LogFactory.GetLogger<SimpleAlloc>();
 
         ~SimpleAlloc() => ReleaseAll();
@@ -27,7 +26,7 @@ namespace JamesFrowen.CSP.Alloc
         public void Allocate(IHasAllocatedPointer owner, int byteCount)
         {
             if (byteCount % 4 != 0)
-                if (logger.WarnEnabled()) logger.LogWarning(TAG, $"Alloc size was not a mutliple of 4");
+                if (logger.WarnEnabled()) logger.LogWarning($"Alloc size was not a mutliple of 4");
 
             var intPtr = Marshal.AllocHGlobal(byteCount);
             AllocHelper.ZeroMemory(intPtr, byteCount);
@@ -36,7 +35,7 @@ namespace JamesFrowen.CSP.Alloc
             var allocation = new Allocation(ptr, byteCount);
 
             _allocations.Add(owner, allocation);
-            if (logger.LogEnabled()) logger.Log(TAG, $"Alloc ptr:{(ulong)ptr:X}, size={byteCount} owner:{owner.name}");
+            if (logger.LogEnabled()) logger.Log($"Alloc ptr:{(ulong)ptr:X}, size={byteCount} owner:{owner.name}");
             owner.Ptr = allocation.ptr;
 
 #if DEBUG
@@ -71,7 +70,7 @@ namespace JamesFrowen.CSP.Alloc
             var removed = _allocations.Remove(owner);
             if (!removed)
             {
-                if (logger.WarnEnabled()) logger.LogWarning(TAG, $"Failed to remove from allocations {(ulong)ptr:X} owner:{owner.name}");
+                if (logger.WarnEnabled()) logger.LogWarning($"Failed to remove from allocations {(ulong)ptr:X} owner:{owner.name}");
             }
 
             owner.Ptr = null;
@@ -79,7 +78,7 @@ namespace JamesFrowen.CSP.Alloc
 
         private static void ReleasePtr(void* ptr)
         {
-            if (logger.LogEnabled()) logger.Log(TAG, $"Release ptr:{(ulong)ptr:X}");
+            if (logger.LogEnabled()) logger.Log($"Release ptr:{(ulong)ptr:X}");
 
             Marshal.FreeHGlobal(new IntPtr(ptr));
         }
