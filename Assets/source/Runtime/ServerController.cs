@@ -8,6 +8,7 @@
  *******************************************************/
 
 using System;
+using JamesFrowen.DeltaSnapshot;
 using Mirage.Logging;
 using Mirage.Serialization;
 using UnityEngine;
@@ -18,11 +19,10 @@ namespace JamesFrowen.CSP
     /// Controls 1 behaviour on server and host
     /// </summary>
     /// <typeparam name="TInput"></typeparam>
-    /// <typeparam name="TState"></typeparam>
-    internal class ServerController<TInput, TState> : IServerController where TState : unmanaged
+    internal class ServerController<TInput> : IServerController
     {
         private static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ServerController");
-        private readonly PredictionBehaviourBase<TInput, TState> behaviour;
+        private readonly PredictionBehaviour<TInput> behaviour;
         private readonly NullableRingBuffer<TInput> _inputBuffer;
 
         private (int tick, TInput input) lastValidInput;
@@ -34,7 +34,7 @@ namespace JamesFrowen.CSP
             hostMode = true;
         }
 
-        public ServerController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
+        public ServerController(PredictionBehaviour<TInput> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
 

@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using JamesFrowen.DeltaSnapshot;
 using Mirage;
 using Mirage.Logging;
 using Mirage.Serialization;
@@ -30,6 +31,13 @@ namespace JamesFrowen.CSP
             _world = world;
         }
 
+        public void HandleNotReady(INetworkPlayer player, InputStateNotReady message)
+        {
+            var tracker = _playerTracker[player];
+            tracker.LastReceivedClientTime = Math.Max(tracker.LastReceivedClientTime, message.ClientTime);
+            tracker.ReadyForWorldState = false;
+        }
+
         public void HandleInput(INetworkPlayer player, InputState message, int lastSimTick)
         {
             var tracker = _playerTracker[player];
@@ -38,15 +46,14 @@ namespace JamesFrowen.CSP
             if (!ValidateInputTick(tracker, message.Tick, lastSimTick))
                 return;
 
-            tracker.ReadyForWorldState = message.Ready;
+            tracker.ReadyForWorldState = true;
 
-            if (message.Ready)
-                HandleReadyInput(player, message, tracker, lastSimTick);
+            ReadInputs(player, message, tracker, lastSimTick);
 
             tracker.lastReceivedInput = Mathf.Max(tracker.lastReceivedInput.GetValueOrDefault(), message.Tick);
         }
 
-        private void HandleReadyInput(INetworkPlayer player, InputState message, PlayerTimeTracker tracker, int lastSimTick)
+        private void ReadInputs(INetworkPlayer player, InputState message, PlayerTimeTracker tracker, int lastSimTick)
         {
             var length = message.NumberOfInputs;
             using (var reader = NetworkReaderPool.GetReader(message.Payload, _world))

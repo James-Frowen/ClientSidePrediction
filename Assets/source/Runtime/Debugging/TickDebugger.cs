@@ -35,12 +35,12 @@ namespace JamesFrowen.CSP.Debugging
             if (IsClient)
             {
                 gui.ClientTimeScale = ClientRunner.TimeScaleMultiple;
-#if DEBUG
-                gui.ClientDelayInTicks = ClientRunner.Debug_DelayInTicks;
-                (var average, var stdDev) = ClientRunner.Debug_RTT.GetAverageAndStandardDeviation();
-                gui.ClientRTT = average;
-                gui.ClientJitter = stdDev;
-#endif
+
+                var (rtt, jitter) = ClientRunner.GetRTTAndJitter();
+
+                gui.ClientDelayInTicks = ClientRunner.GetDelayInTicks();
+                gui.ClientRTT = rtt;
+                gui.ClientJitter = jitter;
             }
         }
 
@@ -58,11 +58,8 @@ namespace JamesFrowen.CSP.Debugging
 
         private void OnStartClient()
         {
-            tickRunner = new ClientTickRunner(
-                movingAverageCount: 50 * 5// 5 seconds
-                );
+            tickRunner = new ClientTickRunner();
             tickRunner.OnTick += ClientTick;
-            NetworkTime.PingInterval = 0;
         }
 
         private void ClientTick(int tick)

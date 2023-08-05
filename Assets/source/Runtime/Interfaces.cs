@@ -120,7 +120,7 @@ namespace JamesFrowen.CSP
     public interface IDebugPredictionAfterImage
     {
         bool ShowAfterImage { get; }
-        unsafe void CreateAfterImage(void* state, Color color);
+        unsafe void CreateAfterImage(ResimulationSnapshot state, Color color);
     }
 
     public interface IPredictionUpdates
@@ -139,12 +139,10 @@ namespace JamesFrowen.CSP
         void VisualUpdate();
     }
 
-    internal interface IPredictionBehaviour : IPredictionUpdates, ISnapshotBehaviour
+    internal interface IPredictionBehaviour : IPredictionUpdates
     {
         IServerController ServerController { get; }
         IClientController ClientController { get; }
-
-        ClientInterpolation ClientInterpolation { get; set; }
 
         bool HasInput { get; }
 

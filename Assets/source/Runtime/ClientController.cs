@@ -7,6 +7,7 @@
  * permission of James Frowen
  *******************************************************/
 
+using JamesFrowen.DeltaSnapshot;
 using Mirage.Logging;
 using Mirage.Serialization;
 using UnityEngine;
@@ -18,22 +19,30 @@ namespace JamesFrowen.CSP
     /// Controls 1 behaviour on client only
     /// </summary>
     /// <typeparam name="TInput"></typeparam>
-    /// <typeparam name="TState"></typeparam>
-    internal unsafe class ClientController<TInput, TState> : IClientController where TState : unmanaged
+    internal unsafe class ClientController<TInput> : IClientController
     {
         private static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.ClientController");
-        private readonly PredictionBehaviourBase<TInput, TState> behaviour;
+        private readonly PredictionBehaviour<TInput> behaviour;
+        /// <summary>
+        /// could be null if behaviour does not have any snapshots
+        /// </summary>
+        private ISnapshotBehaviourGenerated _snapshotBehaviour;
+
+        /// <summary>
+        /// could be null, only used if behaviour is also ISnapshotBehaviourGenerated
+        /// </summary>
+        private IResimulationCallbacks _resimulationCallbacks;
         private readonly NullableRingBuffer<TInput> _inputBuffer;
 
         private bool hasSimulatedLocally;
         private bool hasBeforeResimulateState;
-        private TState beforeResimulateState;
+        private int[] _beforeResimulateState;
 
-        private int lastInputTick;
-
-        public ClientController(PredictionBehaviourBase<TInput, TState> behaviour, int bufferSize)
+        public ClientController(PredictionBehaviour<TInput> behaviour, int bufferSize)
         {
             this.behaviour = behaviour;
+            _snapshotBehaviour = behaviour as ISnapshotBehaviourGenerated;
+            _beforeResimulateState = new int[_snapshotBehaviour.AllocationSizeInts];
 
             // these buffers are small 
             // dont worry about authority, just create one for all objects
@@ -45,24 +54,46 @@ namespace JamesFrowen.CSP
         {
             // we only want to do store before re-simulatuion state if we have simulated any steps locally.
             // otherwise we just want to apply state from server
-            if (hasSimulatedLocally && behaviour.EnableResimulationTransition)
+            if (hasSimulatedLocally && behaviour is IResimulationCallbacks)
             {
-                beforeResimulateState = *behaviour._statePtr;
+                UnsafeHelper.Copy(_snapshotBehaviour.Ptr, _beforeResimulateState, _beforeResimulateState.Length);
                 hasBeforeResimulateState = true;
             }
         }
 
         public void AfterResimulate()
         {
-            if (hasBeforeResimulateState && behaviour.EnableResimulationTransition)
+            if (hasBeforeResimulateState && behaviour is IResimulationCallbacks callbacks)
             {
-                var next = *behaviour._statePtr;
-                *behaviour._statePtr = behaviour.ResimulationTransition(beforeResimulateState, next);
-                behaviour.AfterStateChanged();
-                if (behaviour is IDebugPredictionAfterImage debug && debug.ShowAfterImage)
-                    debug.CreateAfterImage(&next, new Color(0, 0.4f, 1f));
+                fixed (int* before = &_beforeResimulateState[0])
+                {
+                    var snapshot = new ResimulationSnapshot()
+                    {
+                        Before = before,
+                        NameToOffset = _snapshotBehaviour.SnapshotMetadata.NameToOffset
+                    };
 
-                beforeResimulateState = default;
+                    callbacks.ResimulationTransition(snapshot);
+                }
+
+                // todo do we need to set AfterStateChanged here, user could just set values inside ResimulationTransition instead
+                //      they dont need to set state itself, Just the transform
+                // todo can we fully remove AfterStateChanged. It is only used to set untiy state after changing snapshot values
+                //      we might be able to just use LateUpdate instead
+                behaviour.AfterStateChanged();
+
+                if (behaviour is IDebugPredictionAfterImage debug && debug.ShowAfterImage)
+                {
+                    // just re-use this struct for debug, it just needs the current snapsot in order to display effect
+                    var snapshots = new ResimulationSnapshot()
+                    {
+                        Before = _snapshotBehaviour.Ptr,
+                        NameToOffset = _snapshotBehaviour.SnapshotMetadata.NameToOffset
+                    };
+                    debug.CreateAfterImage(snapshots, new Color(0, 0.4f, 1f));
+                }
+
+                _beforeResimulateState = default;
                 hasBeforeResimulateState = false;
             }
         }
@@ -86,10 +117,6 @@ namespace JamesFrowen.CSP
         public void InputTick(int tick)
         {
             Assert.IsTrue(behaviour.UseInputs());
-
-            if (lastInputTick != 0 && lastInputTick != tick - 1)
-                if (logger.WarnEnabled()) logger.LogWarning($"Inputs ticks called out of order. Last:{lastInputTick} tick:{tick}");
-            lastInputTick = tick;
 
             var thisTickInput = behaviour.GetInput();
             _inputBuffer.Set(tick, thisTickInput);

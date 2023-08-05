@@ -8,9 +8,11 @@
  *******************************************************/
 
 using System;
+using System.Collections.Generic;
 using JamesFrowen.DeltaSnapshot;
 using Mirage;
 using Mirage.Events;
+using UnityEngine;
 
 namespace JamesFrowen.CSP
 {
@@ -18,7 +20,7 @@ namespace JamesFrowen.CSP
     /// Base class for Client side prediction for objects without input, like physics objects in a scene.
     /// </summary>
     /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TState> : PredictionBehaviourBase<NoValues, TState> where TState : unmanaged
+    public abstract class PredictionBehaviour : PredictionBehaviour<NoValues>
     {
         public sealed override bool HasInput => false;
         public sealed override NoValues GetInput() => throw new NotSupportedException();
@@ -26,21 +28,12 @@ namespace JamesFrowen.CSP
         public sealed override void ApplyInputs(NetworkInputs<NoValues> inputs) => throw new NotSupportedException();
     }
 
-    /// <summary>
-    /// Base class for Client side prediction for objects with input, like player objects with movement.
-    /// </summary>
-    /// <typeparam name="TState"></typeparam>
-    public abstract class PredictionBehaviour<TInput, TState> : PredictionBehaviourBase<TInput, TState> where TState : unmanaged
-    {
-        public sealed override bool HasInput => true;
-    }
-
-    public abstract unsafe class PredictionBehaviourBase<TInput, TState> : SnapshotBehaviour<TState>, IPredictionBehaviour where TState : unmanaged
+    public abstract unsafe class PredictionBehaviour<TInput> : NetworkBehaviour, IPredictionBehaviour
     {
         public virtual int Order => 0;
 
-        private ClientController<TInput, TState> _clientController;
-        private ServerController<TInput, TState> _serverController;
+        private ClientController<TInput> _clientController;
+        private ServerController<TInput> _serverController;
         private readonly AddLateEvent _onPredictionSetup = new AddLateEvent();
 
         IClientController IPredictionBehaviour.ClientController => _clientController;
@@ -67,7 +60,8 @@ namespace JamesFrowen.CSP
         /// Used to disable input for this object
         /// <para>This should be false for non player objects</para>
         /// </summary>
-        public abstract bool HasInput { get; }
+        public virtual bool HasInput => true;
+
         /// <summary>
         /// Called on Client to get inputs
         /// </summary>
@@ -138,37 +132,15 @@ namespace JamesFrowen.CSP
         /// </summary>
         public virtual void AfterTick() { }
 
-        /// <summary>
-        /// Used to disable ResimulationTransition
-        /// <para>ResimulationTransition requires the state to be gathered before and after resimulation. set this property to false to avoid that</para>
-        /// </summary>
-        public virtual bool EnableResimulationTransition => true;
-
-        /// <summary>
-        /// Used to smooth movement on client after Resimulation
-        /// <para>Call <see cref="ApplyState"/> using to set new position or Leave empty function for no smoothing</para>
-        /// </summary>
-        /// <param name="before">state before resimulation</param>
-        /// <param name="after">state after resimulation</param>
-        public virtual TState ResimulationTransition(TState before, TState after)
-        {
-            return after;
-            // by default nothing
-            // after state will already be applied nothing needs to happen
-
-            // you can override this function to apply moving between state before-re-simulatution and after.
-        }
-
         void IPredictionBehaviour.ServerSetup(int bufferSize)
         {
-            _serverController = new ServerController<TInput, TState>(this, bufferSize);
+            _serverController = new ServerController<TInput>(this, bufferSize);
 
             _onPredictionSetup.Invoke();
         }
         void IPredictionBehaviour.ClientSetup(int bufferSize, ClientInterpolation clientInterpolation)
         {
-            _clientController = new ClientController<TInput, TState>(this, bufferSize);
-            ClientInterpolation = clientInterpolation;
+            _clientController = new ClientController<TInput>(this, bufferSize);
 
             _onPredictionSetup.Invoke();
         }
@@ -178,9 +150,46 @@ namespace JamesFrowen.CSP
             PredictionTime = null;
             _serverController = null;
             _clientController = null;
-            ClientInterpolation = null;
 
             _onPredictionSetup.Reset();
+        }
+
+        public void AssertIsNetworkFixed()
+        {
+            if (PredictionTime.Method != UpdateMethod.NetworkFixed)
+                Debug.LogError("Method not running inside NetworkFixed");
+        }
+    }
+
+    /// <summary>
+    /// Can only be used if behaviour has [Snapshot] properties or ISnapshotBehaviourGenerated interface
+    /// </summary>
+    public interface IResimulationCallbacks
+    {
+        /// <summary>
+        /// Used to smooth movement on client after Resimulation
+        /// <para>
+        /// Use the current state for values after resimulation, and use <paramref name="snapshots"/> to get values from before resimulation
+        /// </para>
+        void ResimulationTransition(ResimulationSnapshot snapshots);
+    }
+
+    public unsafe struct ResimulationSnapshot
+    {
+        public void* Before;
+        public Dictionary<string, int> NameToOffset;
+
+        public void GetPointer<T>(string name, out T* v1) where T : unmanaged
+        {
+            var offset = NameToOffset[name];
+            v1 = (T*)((int*)Before + offset);
+        }
+
+        public void GetProperty<T>(string name, out T v1) where T : unmanaged
+        {
+            var offset = NameToOffset[name];
+
+            v1 = *(T*)((int*)Before + offset);
         }
     }
 

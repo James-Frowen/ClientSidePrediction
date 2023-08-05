@@ -9,33 +9,31 @@
 
 using System;
 using System.Collections.Generic;
-using JamesFrowen.CSP.Alloc;
+using Cysharp.Threading.Tasks;
 using JamesFrowen.CSP.Debugging;
 using JamesFrowen.CSP.Simulations;
+using JamesFrowen.DeltaSnapshot;
+using JamesFrowen.DeltaSnapshot.Alloc;
 using Mirage;
 using Mirage.Logging;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 namespace JamesFrowen.CSP
 {
-    [Serializable]
-    public class ClientTickSettings
-    {
-        public float diffThreshold = 1.5f;
-        public float timeScaleModifier = 0.01f;
-        public float skipThreshold = 10f;
-        public int movingAverageCount = 25;
-    }
     public class PredictionManager : MonoBehaviour
     {
         public const int DEFAULT_BUFFER_SIZE = 64;
 
         private static readonly ILogger logger = LogFactory.GetLogger("JamesFrowen.CSP.PredictionManager");
+        private static readonly ProfilerMarker updateMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.PredictionManager.Update");
 
         [Header("References")]
-        public NetworkServer Server;
-        public NetworkClient Client;
+        [SerializeField] private NetworkServer _server;
+        [SerializeField] private NetworkClient _client;
+        private bool _addedServerEvents;
+        private bool _addedClientEvents;
 
         [Header("Simulation")]
         [Tooltip("Should the timer automatically start when server/client, or should it wait for SetServerRunning/SetClientReady to be called manually")]
@@ -47,16 +45,15 @@ namespace JamesFrowen.CSP
         [Header("Tick Settings")]
         public float TickRate = 50;
         [Tooltip("How Often to send pings, used to make sure inputs are delay by correct amount")]
-        public float PingInterval = 0.2f;
-        [FormerlySerializedAs("ClientTickSettings")]
-        [SerializeField] private ClientTickSettings _clientTickSettings = new ClientTickSettings();
 
         [Header("Debug")]
         public TickDebuggerOutput DebugOutput;
 
         //
-        private ClientManager clientManager;
-        private ServerManager serverManager;
+        private ClientCSP _clientCSP;
+        private ClientDeltaSnapshot _clientDS;
+        private ServerCSP _serverCSP;
+        private ServerDeltaSnapshot _serverDS;
         private TickRunner _tickRunner;
         private IPredictionSimulation _simulation;
         private SimpleAlloc _simpleAlloc;
@@ -73,31 +70,59 @@ namespace JamesFrowen.CSP
         /// <param name="simulation"></param>
         public void SetPredictionSimulation(IPredictionSimulation simulation)
         {
-            if (serverManager != null) throw new InvalidOperationException("Can't set simulation after server has already started");
-            if (clientManager != null) throw new InvalidOperationException("Can't set simulation after client has already started");
+            if (_serverCSP != null) throw new InvalidOperationException("Can't set simulation after server has already started");
+            if (_clientCSP != null) throw new InvalidOperationException("Can't set simulation after client has already started");
 
             _simulation = simulation;
         }
 
-        private void Start()
+        private void Awake()
         {
             _simpleAlloc = new SimpleAlloc();
 
             if (_simulation == null)
                 _simulation = new DefaultPredictionSimulation(PhysicsMode, gameObject.scene);
+        }
+        private void Start()
+        {
+            Setup(_server, _client);
+        }
 
-            if (Server != null)
+        public void Setup(NetworkServer server, NetworkClient client)
+        {
+            if (server != null)
             {
-                Server.Started.AddListener(ServerStarted);
-                Server.Stopped.AddListener(ServerStopped);
-                Server.ManualUpdate = false;
+                if (logger.LogEnabled()) logger.Log($"Setting up server events");
+
+                // remove old events, then add new
+                if (_addedServerEvents)
+                {
+                    _server.Started.RemoveListener(ServerStarted);
+                    _server.Stopped.RemoveListener(ServerStopped);
+                }
+
+                _server = server;
+
+                _server.Started.AddListener(ServerStarted);
+                _server.Stopped.AddListener(ServerStopped);
+                _addedServerEvents = true;
             }
 
-            if (Client != null)
+            if (client != null)
             {
-                Client.Started.AddListener(ClientStarted);
-                Client.Disconnected.AddListener(ClientStopped);
-                Client.ManualUpdate = false;
+                if (logger.LogEnabled()) logger.Log($"Setting up client events");
+
+                if (_addedClientEvents)
+                {
+                    _client.Started.RemoveListener(ClientStarted);
+                    _client.Disconnected.RemoveListener(ClientStopped);
+                }
+
+                _client = client;
+
+                _client.Started.AddListener(ClientStarted);
+                _client.Disconnected.AddListener(ClientStopped);
+                _addedClientEvents = true;
             }
         }
 
@@ -107,90 +132,110 @@ namespace JamesFrowen.CSP
             ServerStopped();
             ClientStopped(default);
 
+            if (_addedServerEvents)
+            {
+                _server.Started.RemoveListener(ServerStarted);
+                _server.Stopped.RemoveListener(ServerStopped);
+            }
+
+            if (_addedClientEvents)
+            {
+                _client.Started.RemoveListener(ClientStarted);
+                _client.Disconnected.RemoveListener(ClientStopped);
+            }
+
             _simpleAlloc?.Dispose();
         }
 
         private void ServerStarted()
         {
-            _tickRunner = new TickRunner()
-            {
-                TickRate = TickRate
-            };
+            _tickRunner = new TickRunner(TickRate);
             _time = new PredictionTime(_tickRunner);
 
-            serverManager = new ServerManager(_simulation, _tickRunner, _time, Server.World, _simpleAlloc, Server.MessageHandler);
 
-            serverManager.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
+            var socketFactory = _server.SocketFactory;
+            var maxSize = socketFactory.MaxPacketSize;
+            _serverDS = new ServerDeltaSnapshot(_server, _server.World, _simpleAlloc, _server.MessageHandler, maxSize, DEFAULT_BUFFER_SIZE);
+            _serverCSP = new ServerCSP(_simulation, _time, _server.World, _server.MessageHandler, _serverDS.PlayerTracker, SnapshotManager.DEFAULT_BUFFER_SIZE);
+            _tickRunner.OnTick += _serverCSP.Tick;
 
-            // we need to add players because serverManager keeps track of a list internally
-            Server.Authenticated.AddListener(serverManager.AddPlayer);
-            Server.Disconnected.AddListener(serverManager.RemovePlayer);
+            _serverCSP.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
 
-            _tickRunner.BeforeAllTicks += Server.UpdateReceive;
-            _tickRunner.AfterAllTicks += Server.UpdateSent;
+            _server.ManualUpdate = true;
 
-            foreach (var player in Server.Players)
-                serverManager.AddPlayer(player);
+            _tickRunner.BeforeAllTicks += _server.UpdateReceive;
+
+            _tickRunner.BeforeTick += _serverDS.BeforeTick;
+            _tickRunner.OnTick += _serverCSP.Tick;
+
+            _tickRunner.AfterAllTicks += _serverDS.AfterAllTicks;
+            _tickRunner.AfterAllTicks += _server.UpdateSent;
 
             SetServerRunning(AutoStart || _serverRunning);
+
+            _server.MessageHandler.RegisterHandler<RequestTimeInfo>(HandleTimeInfo);
+        }
+
+        private void HandleTimeInfo(INetworkPlayer player, RequestTimeInfo message)
+        {
+            player.Send(new TimeInfo
+            {
+                ClientTime = message.ClientTime,
+                Tick = _tickRunner.Tick,
+                TimeScale = UnityEngine.Time.timeScale == 1 ? default(float?) : UnityEngine.Time.timeScale,
+            });
         }
 
         private void ServerStopped()
         {
             // if null, nothing to clean up
-            if (serverManager == null)
+            if (_serverCSP == null)
                 return;
 
-            foreach (var obj in Server.World.SpawnedIdentities)
+            foreach (var obj in _server.World.SpawnedIdentities)
             {
                 if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
                     behaviour.CleanUp();
             }
 
-            // make sure to remove listens before setting to null
-            Server.Authenticated.RemoveListener(serverManager.AddPlayer);
-            Server.Disconnected.RemoveListener(serverManager.RemovePlayer);
+            // clear manual update so that message still work when prediction manager is destroyed
+            _server.ManualUpdate = false;
 
             _tickRunner = null;
-            serverManager = null;
+            _serverCSP = null;
         }
 
         private void ClientStarted()
         {
-            var hostMode = Client.IsLocalClient;
+            var hostMode = _client.IsLocalClient;
 
             if (hostMode)
             {
-                serverManager.SetHostMode();
-
-                // todo dont send world state to host
-                Client.MessageHandler.RegisterHandler<DeltaWorldState>((msg) => { });
+                _serverCSP.SetHostMode();
 
                 // todo clean up host stuff in ClientManager
                 // todo add throw check inside ClientManager/clientset up to throw if server is active (host mode just uses server controller+behaviour)
                 //clientManager = new ClientManager(hostMode, _simulation, _tickRunner, Client.World, Client.MessageHandler);
 
-                AddClientEvents(serverManager.Behaviours);
+                AddClientEvents(_serverCSP.Behaviours);
             }
             else
             {
-                Client.World.Time.PingInterval = PingInterval;
+                if (logger.LogEnabled()) logger.Log($"Client started, setting up clientManager for prediction");
 
-                var clientRunner = new ClientTickRunner(
-                    diffThreshold: _clientTickSettings.diffThreshold,
-                    timeScaleModifier: _clientTickSettings.timeScaleModifier,
-                    skipThreshold: _clientTickSettings.skipThreshold,
-                    movingAverageCount: _clientTickSettings.movingAverageCount
-                    )
-                {
-                    TickRate = TickRate,
-                };
+                var clientRunner = new ClientTickRunner(TickRate);
                 _tickRunner = clientRunner;
                 _time = new PredictionTime(_tickRunner);
-                clientManager = new ClientManager(_simulation, clientRunner, _time, Client.World, Client.Player, Client.MessageHandler, _simpleAlloc);
-                AddClientEvents(clientManager.Behaviours);
+                _clientDS = new ClientDeltaSnapshot(_client.Player, _client.World, _client.MessageHandler, _simpleAlloc, SnapshotManager.DEFAULT_BUFFER_SIZE);
+                _clientCSP = new ClientCSP(_simulation, clientRunner, _time, _client.World, _client.Player, _clientDS, SnapshotManager.DEFAULT_BUFFER_SIZE);
 
-                clientManager.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
+                clientRunner.OnTick += _clientCSP.Tick;
+                clientRunner.AfterAllTicks += _clientCSP.AfterAllTicks;
+                clientRunner.OnTickSkip += _clientCSP.OnTickSkip;
+
+                AddClientEvents(_clientCSP.Behaviours);
+
+                _clientCSP.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
 
                 SetClientReady(AutoStart || _clientReady);
             }
@@ -198,15 +243,17 @@ namespace JamesFrowen.CSP
 
         private void AddClientEvents(PredictionCollection behaviours)
         {
+            _client.ManualUpdate = true;
+
             _tickRunner.BeforeAllTicks += () =>
             {
-                Client.UpdateReceive();
+                _client.UpdateReceive();
                 InputUpdate(behaviours.GetUpdates());
             };
             _tickRunner.AfterAllTicks += () =>
             {
                 VisualUpdate(behaviours.GetUpdates());
-                Server.UpdateSent();
+                _client.UpdateSent();
             };
         }
 
@@ -214,19 +261,22 @@ namespace JamesFrowen.CSP
         {
             // todo, can we just have the `clientManager == null)` check below?
             // nothing to clean up if hostmode
-            if (Server != null && Server.Active)
+            if (_server != null && _server.Active)
                 return;
             // if null, nothing to clean up
-            if (clientManager == null)
+            if (_clientCSP == null)
                 return;
 
-            foreach (var obj in Client.World.SpawnedIdentities)
+            foreach (var obj in _client.World.SpawnedIdentities)
             {
                 if (obj.TryGetComponent(out IPredictionBehaviour behaviour))
                     behaviour.CleanUp();
             }
             _tickRunner = null;
-            clientManager = null;
+            _clientCSP = null;
+
+            // clear manual update so that message still work when prediction manager is destroyed
+            _client.ManualUpdate = false;
         }
 
         /// <summary>
@@ -237,7 +287,7 @@ namespace JamesFrowen.CSP
         {
             if (logger.LogEnabled()) logger.Log($"SetClientReady: {ready}");
 
-            if (Client.IsLocalClient)
+            if (_client.IsLocalClient)
             {
                 if (logger.WarnEnabled()) logger.LogWarning($"SetClientReady does nothing in host moode and should not be called");
                 return;
@@ -245,21 +295,63 @@ namespace JamesFrowen.CSP
 
             // store bool incase clientManager isn't created yet
             _clientReady = ready;
-            if (clientManager != null)
+            if (_clientCSP != null)
             {
-                clientManager.ReadyForWorldState = ready;
+                // set to not ready
+                if (!ready)
+                    _clientCSP.ReadyForWorldState = false;
+
                 _tickRunner.SetRunning(ready);
             }
 
             if (ready && _tickRunner != null)
             {
+                // reset time first, 
                 ((ClientTickRunner)_tickRunner).ResetTime();
+
+                SendRequetTimeInfo().Forget();
             }
+        }
+
+        private async UniTaskVoid SendRequetTimeInfo()
+        {
+            // create waiter
+            var waiter = new MessageWaiter<TimeInfo>(_client);
+
+            // send message
+            _client.Send(new RequestTimeInfo
+            {
+                ClientTime = _time.UnscaledTime,
+            });
+
+
+            // wait for reply
+            var (disconnect, msg) = await waiter.WaitAsync();
+
+            if (disconnect)
+                return;
+
+            // set timescale
+            if (msg.TimeScale.HasValue)
+            {
+                UnityEngine.Time.timeScale = msg.TimeScale.Value;
+            }
+            // else if no value, then reset scale to 1
+            else if (UnityEngine.Time.timeScale != 1)
+            {
+                UnityEngine.Time.timeScale = 1;
+            }
+
+            // reset time
+            ((ClientTickRunner)_tickRunner).ResetTime(msg);
+
+            // only saym we are ready for world state after we have received reset
+            _clientCSP.ReadyForWorldState = true;
         }
 
         /// <summary>
         /// Sets if server should be running tick and simulation
-        /// <para>while this is false tickrunner will be spawned</para>
+        /// <para>while this is false tickRunner will be spawned</para>
         /// </summary>
         public void SetServerRunning(bool running)
         {
@@ -277,10 +369,14 @@ namespace JamesFrowen.CSP
             _time.Method = UpdateMethod.Input;
             for (var i = 0; i < behaviours.Count; i++)
             {
-                var behaviour = behaviours[i];
-                //Debug.Assert(behaviour != null, "Behaviour null");
-
-                behaviour.InputUpdate();
+                try
+                {
+                    behaviours[i].InputUpdate();
+                }
+                catch (Exception e)
+                {
+                    logger.LogException(e);
+                }
             }
             _time.Method = UpdateMethod.None;
         }
@@ -289,29 +385,37 @@ namespace JamesFrowen.CSP
             _time.Method = UpdateMethod.Visual;
             for (var i = 0; i < behaviours.Count; i++)
             {
-                var behaviour = behaviours[i];
-                behaviour.VisualUpdate();
+                try
+                {
+                    behaviours[i].VisualUpdate();
+                }
+                catch (Exception e)
+                {
+                    logger.LogException(e);
+                }
             }
             _time.Method = UpdateMethod.None;
         }
 
         private void Update()
         {
-            // manaully update if tickRunner is null or not running
-            if (_tickRunner == null || !_tickRunner.IsRunning)
-            {
-                Server?.UpdateReceive();
-                Server?.UpdateSent();
-                Client?.UpdateReceive();
-                Client?.UpdateSent();
-            }
+            updateMarker.Begin(this);
 
+            // manaully update if tickRunner is null or not running
+            if (_tickRunner == null || !_tickRunner.IsRunning || (_tickRunner is ClientTickRunner clientTickRunner && !clientTickRunner.Intialized))
+            {
+                _server?.UpdateReceive();
+                _server?.UpdateSent();
+                _client?.UpdateReceive();
+                _client?.UpdateSent();
+            }
 
             _tickRunner?.OnUpdate();
 
 #if DEBUG
             SetGuiValues();
 #endif
+            updateMarker.End();
         }
 
 #if DEBUG
@@ -319,19 +423,19 @@ namespace JamesFrowen.CSP
         {
             if (TickRunner != null && DebugOutput != null)
             {
-                DebugOutput.IsServer = Server != null && Server.Active;
-                DebugOutput.IsClient = Client != null && Client.Active && !(Server != null && Server.Active);
+                DebugOutput.IsServer = _server != null && _server.Active;
+                DebugOutput.IsClient = _client != null && _client.Active && !(_server != null && _server.Active);
 
                 if (DebugOutput.IsServer)
                 {
-                    DebugOutput.ClientTick = serverManager.Debug_FirstPlayertracker?.lastReceivedInput ?? 0;
+                    DebugOutput.ClientTick = _serverDS.Debug_FirstPlayerTracker?.lastReceivedInput ?? 0;
                     DebugOutput.ServerTick = TickRunner.Tick;
                     DebugOutput.Diff = DebugOutput.ClientTick - DebugOutput.ServerTick;
                 }
                 if (DebugOutput.IsClient)
                 {
                     DebugOutput.ClientTick = TickRunner.Tick;
-                    DebugOutput.ServerTick = clientManager.Debug_ServerTick;
+                    DebugOutput.ServerTick = _clientDS.LastReceivedTick ?? 0;
                     DebugOutput.Diff = DebugOutput.ClientTick - DebugOutput.ServerTick;
                 }
 
@@ -339,11 +443,13 @@ namespace JamesFrowen.CSP
                 if (DebugOutput.IsClient)
                 {
                     var clientRunner = (ClientTickRunner)TickRunner;
+
                     DebugOutput.ClientTimeScale = clientRunner.TimeScaleMultiple;
-                    DebugOutput.ClientDelayInTicks = clientRunner.Debug_DelayInTicks;
-                    (var average, var stdDev) = clientRunner.Debug_RTT.GetAverageAndStandardDeviation();
-                    DebugOutput.ClientRTT = average;
-                    DebugOutput.ClientJitter = stdDev;
+                    DebugOutput.ClientDelayInTicks = clientRunner.GetDelayInTicks();
+
+                    var (rtt, jitter) = clientRunner.GetRTTAndJitter();
+                    DebugOutput.ClientRTT = rtt;
+                    DebugOutput.ClientJitter = jitter;
                 }
             }
         }

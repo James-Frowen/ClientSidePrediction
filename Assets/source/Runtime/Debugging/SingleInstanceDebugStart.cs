@@ -67,8 +67,7 @@ namespace JamesFrowen.CSP.Debugging
             {
                 manager.DebugOutput = go.AddComponent<TickDebuggerGui>();
             }
-            manager.Client = client;
-            manager.Server = server;
+            manager.Setup(server, client);
             manager.PhysicsMode = simulationMode;
             SceneManager.MoveGameObjectToScene(go, scene);
             go.SetActive(true);
@@ -163,7 +162,7 @@ namespace JamesFrowen.CSP.Debugging
                     SceneManager.MoveGameObjectToScene(clone2, clientScene2);
                     var behaviour2 = clone2.GetComponent<IDebugPredictionLocalCopy>();
                     clone.GetComponent<IDebugPredictionLocalCopy>().Copy = behaviour2;
-                    var tickRunner = new TickRunner() { TickRate = ClientManager.TickRate };
+                    var tickRunner = new TickRunner(ClientManager.TickRate);
                     var predictionTime = new PredictionTime(tickRunner);
                     behaviour2.Setup(predictionTime);
                     clone2.GetComponent<Renderer>().material.color = Color.blue;
@@ -175,9 +174,6 @@ namespace JamesFrowen.CSP.Debugging
             }, (spawned) => Destroy(spawned));
             Client.Started.AddListener(() =>
             {
-                // need lower frequency so RTT updates faster
-                Client.World.Time.PingInterval = 0.1f;
-
                 Action<NetworkIdentity> ChangeObjectColor = ni =>
                 {
                     var renderer = ni.GetComponent<Renderer>();

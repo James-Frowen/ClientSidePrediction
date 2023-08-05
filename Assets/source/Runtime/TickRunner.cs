@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Mirage.Logging;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -36,8 +37,13 @@ namespace JamesFrowen.CSP
     public class TickRunner
     {
         private static readonly ILogger logger = LogFactory.GetLogger<TickRunner>();
+        private static readonly ProfilerMarker beforeAllTicksMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.TickRunner.BeforeAllTicks");
+        private static readonly ProfilerMarker beforeTickMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.TickRunner.BeforeTick");
+        private static readonly ProfilerMarker onTickMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.TickRunner.OnTick");
+        private static readonly ProfilerMarker afterTickMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.TickRunner.AfterTick");
+        private static readonly ProfilerMarker afterAllTicksMarker = new ProfilerMarker(ProfilerCategory.Network, "JamesFrowen.CSP.TickRunner.AfterAllTicks");
 
-        public float TickRate = 50;
+        public readonly float TickRate;
 
         /// <summary>
         /// Max milliseconds per frame to process. Wont start new Ticks if current frame is over this limit.
@@ -60,7 +66,7 @@ namespace JamesFrowen.CSP
         /// This is to avoid running too long per frame. Higher number will catch up faster, but will cause longer frame times
         /// </para>
         /// </summary>
-        public int MaxTickPerFrame = 5;
+        public int MaxTickPerFrame = 10;
 
         protected int _tick;
         protected double _time;
@@ -106,9 +112,10 @@ namespace JamesFrowen.CSP
         /// </summary>
         public event Action AfterAllTicks;
 
-        public TickRunner()
+        public TickRunner(float tickRate = 50)
         {
             stopwatch = Stopwatch.StartNew();
+            TickRate = tickRate;
         }
 
         public bool IsRunning
@@ -174,7 +181,12 @@ namespace JamesFrowen.CSP
             if (!_isRunning)
                 return;
 
-            BeforeAllTicks?.Invoke();
+            if (BeforeAllTicks != null)
+            {
+                beforeAllTicksMarker.Begin();
+                BeforeAllTicks.Invoke();
+                beforeAllTicksMarker.End();
+            }
 
 
             var timeDelta = delta * UnityEngine.Time.timeScale * TimeScaleMultiple;
@@ -182,6 +194,7 @@ namespace JamesFrowen.CSP
             _time += timeDelta;
             _deltaTime = timeDelta;
             tickTimer += timeDelta;
+
             while (tickTimer > FixedDeltaTime)
             {
                 tickTimer -= FixedDeltaTime;
@@ -191,9 +204,25 @@ namespace JamesFrowen.CSP
                 // todo what if we jump back, do we not need to resimulate?
                 if (_tick > lastInvokedTick)
                 {
-                    BeforeTick?.Invoke(_tick);
-                    OnTick?.Invoke(_tick);
-                    AfterTick?.Invoke(_tick);
+                    if (BeforeTick != null)
+                    {
+                        beforeTickMarker.Begin();
+                        BeforeTick.Invoke(_tick);
+                        beforeTickMarker.End();
+                    }
+                    if (OnTick != null)
+                    {
+                        onTickMarker.Begin();
+                        OnTick.Invoke(_tick);
+                        onTickMarker.End();
+                    }
+                    if (AfterTick != null)
+                    {
+                        afterTickMarker.Begin();
+                        AfterTick.Invoke(_tick);
+                        afterTickMarker.End();
+                    }
+
                     lastInvokedTick = _tick;
                 }
 
@@ -210,7 +239,7 @@ namespace JamesFrowen.CSP
 
                 if (_tick > startTick + MaxTickPerFrame)
                 {
-                    if (logger.WarnEnabled()) logger.LogWarning($"Reached max ticks per frame ({MaxTickPerFrame}). Time taken {(GetCurrentTime() - now) * 1000f}ms");
+                    if (logger.WarnEnabled()) logger.LogWarning($"Reached max ticks per frame ({MaxTickPerFrame}). Time taken {(GetCurrentTime() - now) * 1000f:0.0}ms. tickTimer:{tickTimer * 1000f:0.0}ms");
 
                     // todo check if resetting this is bad
                     // in single player mode it should be fine as we will just continue as normal from new time
@@ -220,9 +249,15 @@ namespace JamesFrowen.CSP
                 }
             }
 
-            if (logger.LogEnabled()) logger.Log($"TickRunner (tick={_tick}): {_tick - startTick} ticks in {(GetCurrentTime() - now) * 1000f:0.00}ms");
+            if (logger.LogEnabled()) logger.Log($"TickRunner (tick={_tick}): {_tick - startTick} ticks in {(GetCurrentTime() - now) * 1000f:0.0}ms\n" +
+                $"  unscaledTime:{now:0.000}s time:{_time:0.000}s, deltaTime:{_deltaTime * 1000f:0.0}ms, tickTimer:{tickTimer * 1000f:0.0}ms");
 
-            AfterAllTicks?.Invoke();
+            if (AfterAllTicks != null)
+            {
+                afterAllTicksMarker.Begin();
+                AfterAllTicks.Invoke();
+                afterAllTicksMarker.End();
+            }
         }
 
         // have this virtual methods here, just so we have use 1 field for TickRunner.
@@ -240,53 +275,73 @@ namespace JamesFrowen.CSP
         // ring buffers are 64, so set 60 as max to be safe
         // todo make this a field, not const
         private const int MAX_TICK_DELAY = 60;
-        private readonly MovingAverage _RTTAverage;
-        private readonly float _fastScale;
+
+        private readonly MovingAverage _RTTAverage = new MovingAverage(100);
+
+
+        // we want to be more aggresive with scale when behind
+        // because whne we are behind the server wont get our inputs in time
+        private readonly float _farBehindScale = 2f;
+        private readonly float _behindScale = 1.05f;
         private readonly float _normalScale = 1f;
-        private readonly float _slowScale;
-        private readonly float _positiveThreshold;
-        private readonly float _negativeThreshold;
-        private readonly float _skipAheadThreshold;
+        private readonly float _aheadScale = 0.98f;
+        private readonly float _farAheadScale = 0.80f;
+
+        // IMPORTANT: values below are in ticks
+        private readonly float _skipAheadThreshold = 10f;
+        private readonly float _farBehindThreshold = 4f;
+        private readonly float _behindThreshold = 1f;
+        private readonly float _aheadThreshold = -2f;
+        private readonly float _farAheadThreshold = -20f;
+
         private bool _intialized;
         private int _latestServerTick;
 
-        //public float ClientDelaySeconds => ClientDelay * FixedDeltaTime;
+        /// <summary>
+        /// Most recent RTT before taking average
+        /// </summary>
+        public float CurrentRTT;
 
-#if DEBUG
-        public float Debug_DelayInTicks { get; private set; }
-        public MovingAverage Debug_RTT => _RTTAverage;
-#endif
+        /// <summary>
+        /// Guess for what current server tick is. We then compare this to the tick received to see if we need to speed up or slow down
+        /// </summary>
+        public float ServerGuess;
+        /// <summary>
+        /// Most recent server tick received
+        /// </summary>
+        public int ServerTick;
+
+        /// <summary>
+        /// Client tick runner will only update after it has received a message from server
+        /// <para>When manually updating Receive/send from tickrunner you also need to check Intialized otherwise no messages will be received</para>
+        /// </summary>
+        public bool Intialized => _intialized;
+
+        public (float rtt, float jitter) GetRTTAndJitter()
+        {
+            return _RTTAverage.GetAverageAndStandardDeviation();
+        }
+
+        public float GetDelayInTicks()
+        {
+            return Tick - ServerGuess;
+        }
 
 #if CLIENT_TICK_RUNNER_VERBOSE
         private StreamWriter _writer;
 #endif
+
+
 
         /// <summary>
         /// Invoked at start AND if client gets too get away from server
         /// </summary>
         public event Action OnTickSkip;
 
-        /// <param name="diffThreshold">how many ticks off the client time can be before changing speed, In ticks</param>
-        /// <param name="timeScaleModifier">how much to speed up/slow down by is behind/ahead</param>
-        /// <param name="skipThreshold">skip ahead to server tick if this far behind</param>
-        /// <param name="movingAverageCount">how many ticks used in average, increase or decrease with framerate</param>
-        public ClientTickRunner(float diffThreshold = 1.5f, float timeScaleModifier = 0.01f, float skipThreshold = 10f, int movingAverageCount = 100)
+        public ClientTickRunner(float tickRate = 50) : base(tickRate)
         {
-            // IMPORTANT: most of these values are in tick NOT seconds, so careful when using them
-
-            // if client is off by 0.5 then speed up/slow down
-            _positiveThreshold = diffThreshold;
-            _negativeThreshold = -_positiveThreshold;
-
-            // skip ahead if client fall behind by this many ticks
-            _skipAheadThreshold = skipThreshold;
-
-            // speed up/slow down up by 0.01 if after/behind
-            // we never want to be behind so catch up faster
-            _fastScale = _normalScale + (timeScaleModifier * 5);
-            _slowScale = _normalScale - timeScaleModifier;
-
-            _RTTAverage = new MovingAverage(movingAverageCount);
+            // 2 seconds worth of average
+            _RTTAverage = new MovingAverage(Mathf.RoundToInt(2 * tickRate));
 
 #if CLIENT_TICK_RUNNER_VERBOSE
             try
@@ -301,6 +356,17 @@ namespace JamesFrowen.CSP
             }
             Debug("serverTick,serverGuess,localTick,delayInTicks,delayInSeconds,delayFromLag,delayFromJitter,diff,newRTT,intialized");
 #endif
+        }
+
+        public void ResetTime(TimeInfo timeInfo)
+        {
+            // reset first, then add new value
+            ResetTime();
+
+            ServerTick = timeInfo.Tick;
+            AddTimeToAverage(timeInfo.ClientTime);
+
+            InitNew(ServerTick);
         }
 
         public void ResetTime()
@@ -336,6 +402,7 @@ namespace JamesFrowen.CSP
             if (!CheckOrder(serverTick))
                 return;
 
+            ServerTick = serverTick;
             AddTimeToAverage(clientSendTime);
 #if CLIENT_TICK_RUNNER_VERBOSE
             VerboseLog(serverTick, clientSendTime);
@@ -351,9 +418,9 @@ namespace JamesFrowen.CSP
             }
 
             // guess what tick we have to be to reach serever in time
-            var serverGuess = _tick - DelayInTicks();
+            ServerGuess = _tick - DelayInTicks();
             // how far was out guess off?
-            var diff = serverTick - serverGuess;
+            var diff = serverTick - ServerGuess;
 
             // if diff is bad enough, skip ahead
             // todo do we need abs, do also want to skip back if we are very ahead?
@@ -361,16 +428,18 @@ namespace JamesFrowen.CSP
             if (Math.Abs(diff) > _skipAheadThreshold)
             {
                 (var lag, var jitter) = _RTTAverage.GetAverageAndStandardDeviation();
-                logger.LogWarning($"Client fell behind, skipping ahead. server:{serverTick:0.00} serverGuess:{serverGuess} diff:{diff:0.00}. RTT[lag={lag},jitter={jitter}]");
+                var currentTick = _tick;
                 InitNew(serverTick);
+                var newTick = _tick;
+                logger.LogWarning($"Client fell behind, skipping ahead. localTick:(current={currentTick},newTick={newTick}) server:{serverTick:0.00} serverGuess:{ServerGuess} diff:{diff:0.00}. RTT[lag={lag},jitter={jitter}]");
                 return;
             }
 
             // apply timescale to try get closer to server
-            AdjustClientTimeScale(diff);
+            TimeScaleMultiple = GetTimeScale(diff);
 
             //todo add trace level
-            if (logger.LogEnabled()) logger.Log($"st {serverTick:0.00} sg {serverGuess:0.00} ct {_tick:0.00} diff {diff * 1000:0.0}, wanted:{diff * 1000:0.0}, scale:{TimeScaleMultiple}");
+            if (logger.LogEnabled()) logger.Log($"st {serverTick:0.00} sg {ServerGuess:0.00} ct {_tick:0.00} diff {diff * 1000:0.0}, wanted:{diff * 1000:0.0}, scale:{TimeScaleMultiple}");
         }
 
         private float DelayInTicks()
@@ -393,9 +462,6 @@ namespace JamesFrowen.CSP
                 delayInTicks = MAX_TICK_DELAY;
             }
 
-#if DEBUG
-            Debug_DelayInTicks = delayInTicks;
-#endif
             return delayInTicks;
         }
 
@@ -413,13 +479,15 @@ namespace JamesFrowen.CSP
                     newRTT = MAX_RTT;
                 }
                 Assert.IsTrue(newRTT > 0);
-                _RTTAverage.Add((float)newRTT);
+                CurrentRTT = (float)newRTT;
             }
             else
             {
                 // just add 150 ms as tick RTT
-                _RTTAverage.Add(0.150f);
+                CurrentRTT = 0.150f;
             }
+
+            _RTTAverage.Add(CurrentRTT);
         }
 
         private void InitNew(int serverTick)
@@ -435,7 +503,7 @@ namespace JamesFrowen.CSP
             OnTickSkip?.Invoke();
         }
 
-        private void AdjustClientTimeScale(float diff)
+        private float GetTimeScale(float diff)
         {
             // diff is server-client,
             // if positive then server is ahead, => we can run client faster to catch up
@@ -444,14 +512,19 @@ namespace JamesFrowen.CSP
             // we want diffVsGoal to be as close to 0 as possible
 
             // server ahead, speed up client
-            if (diff > _positiveThreshold)
-                TimeScaleMultiple = _fastScale;
+            if (diff > _farBehindThreshold) // too far behind  
+                return _farBehindScale;
+            if (diff > _behindThreshold) // slightly behind
+                return _behindScale;
+
             // server behind, slow down client
-            else if (diff < _negativeThreshold)
-                TimeScaleMultiple = _slowScale;
+            if (diff < _farAheadThreshold) // too far ahead
+                return _farAheadScale;
+            if (diff < _aheadThreshold) // slighty ahead
+                return _aheadScale;
+
             // close enough
-            else
-                TimeScaleMultiple = _normalScale;
+            return _normalScale;
         }
 
 

@@ -117,6 +117,8 @@ namespace JamesFrowen.CSP
 
             _needsSorting = true;
 
+            _gameObjects.Remove(identity);
+
             foreach (var obj in updates)
             {
                 obj.PredictionTime = null;

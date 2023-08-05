@@ -155,15 +155,15 @@ namespace JamesFrowen.DeltaSnapshot.Tests
             var qServer = Quaternion.Euler(0, 32, 0);
 
             // just use delta
-            *(Quaternion*)(_from) = qFrom;
-            *(Quaternion*)(_serverTo) = qServer;
+            *(Quaternion*)_from = qFrom;
+            *(Quaternion*)_serverTo = qServer;
             const int intSize = 4;
 
             DeltaReadWrite(intSize);
 
             Debug.Log($"BitCount: {_writer.BitPosition}");
 
-            var qClient = *(Quaternion*)(_clientTo);
+            var qClient = *(Quaternion*)_clientTo;
 
             // 0.1f is small enough not to care about in this test
             Assert.That(Quaternion.Angle(qServer, qClient), Is.LessThan(0.1f));
