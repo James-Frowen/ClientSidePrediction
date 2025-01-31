@@ -123,13 +123,13 @@ namespace JamesFrowen.CSP
             serverManager.Behaviours.Add(UniTaskExtras.CustomTimingHelper.Init());
 
             // we need to add players because serverManager keeps track of a list internally
-            Server.Connected.AddListener(serverManager.AddPlayer);
+            Server.Authenticated.AddListener(serverManager.AddPlayer);
             Server.Disconnected.AddListener(serverManager.RemovePlayer);
 
             _tickRunner.BeforeAllTicks += Server.UpdateReceive;
             _tickRunner.AfterAllTicks += Server.UpdateSent;
 
-            foreach (var player in Server.Players)
+            foreach (var player in Server.AuthenticatedPlayers)
                 serverManager.AddPlayer(player);
 
             SetServerRunning(AutoStart || _serverRunning);
@@ -157,7 +157,7 @@ namespace JamesFrowen.CSP
 
         private void ClientStarted()
         {
-            var hostMode = Client.IsLocalClient;
+            var hostMode = Client.IsHost;
 
             if (hostMode)
             {
@@ -237,9 +237,9 @@ namespace JamesFrowen.CSP
         {
             if (logger.LogEnabled()) logger.Log($"SetClientReady: {ready}");
 
-            if (Client.IsLocalClient)
+            if (Client.IsHost)
             {
-                if (logger.WarnEnabled()) logger.LogWarning($"SetClientReady does nothing in host moode and should not be called");
+                if (logger.WarnEnabled()) logger.LogWarning($"SetClientReady does nothing in host mode and should not be called");
                 return;
             }
 
