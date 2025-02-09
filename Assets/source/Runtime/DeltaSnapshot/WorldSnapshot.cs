@@ -45,6 +45,9 @@ namespace JamesFrowen.DeltaSnapshot
             _snapshots.Add(snap);
             _lookup.Add(snap.Identity.NetId, snap);
 
+            foreach (var behaviour in behaviours)
+                behaviour.InvokeStateReady();
+
             return snap;
         }
 

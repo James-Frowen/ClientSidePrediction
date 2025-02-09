@@ -70,16 +70,10 @@ namespace JamesFrowen.DeltaSnapshot
             throw new SnapshotException($"state pointer is null for '{GetType().Name}' on [netid={Identity.NetId} name='{name}']");
         }
 
-
         void* IHasAllocatedPointer.Ptr
         {
             get => _statePtr;
-            set
-            {
-                _statePtr = (TState*)value;
-                if (_statePtr != null)
-                    StateReady();
-            }
+            set => _statePtr = (TState*)value;
         }
 
         int ISnapshotBehaviour.PtrIntOffset { get; set; }
@@ -93,6 +87,6 @@ namespace JamesFrowen.DeltaSnapshot
         /// <summary>
         /// Called when State pointer has been set and it is safe to write to <see cref="State"/>
         /// </summary>
-        protected virtual void StateReady() { }
+        protected internal virtual void StateReady() { }
     }
 }
