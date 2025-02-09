@@ -74,7 +74,12 @@ namespace JamesFrowen.DeltaSnapshot
         void* IHasAllocatedPointer.Ptr
         {
             get => _statePtr;
-            set => _statePtr = (TState*)value;
+            set
+            {
+                _statePtr = (TState*)value;
+                if (_statePtr != null)
+                    StateReady();
+            }
         }
 
         int ISnapshotBehaviour.PtrIntOffset { get; set; }
@@ -84,5 +89,10 @@ namespace JamesFrowen.DeltaSnapshot
 
         // round up to nearest 32 bit
         public int AllocationSizeInts => (sizeof(TState) + 3) / 4;
+
+        /// <summary>
+        /// Called when State pointer has been set and it is safe to write to <see cref="State"/>
+        /// </summary>
+        protected virtual void StateReady() { }
     }
 }
