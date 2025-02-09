@@ -31,6 +31,8 @@ namespace JamesFrowen.DeltaSnapshot
         /// Manager that can be used to get state from a different tick
         /// </summary>
         ISnapshotManager SnapshotManager { get; set; }
+
+        void InvokeStateReady();
     }
 
     public unsafe interface ISnapshotManager
@@ -83,6 +85,8 @@ namespace JamesFrowen.DeltaSnapshot
 
         // round up to nearest 32 bit
         public int AllocationSizeInts => (sizeof(TState) + 3) / 4;
+
+        void ISnapshotBehaviour.InvokeStateReady() => StateReady();
 
         /// <summary>
         /// Called when State pointer has been set and it is safe to write to <see cref="State"/>
