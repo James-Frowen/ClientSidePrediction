@@ -174,14 +174,14 @@ namespace JamesFrowen.CSP
             if (!_isRunning)
                 return;
 
-            BeforeAllTicks?.Invoke();
-
-
             var timeDelta = delta * UnityEngine.Time.timeScale * TimeScaleMultiple;
 
             _time += timeDelta;
             _deltaTime = timeDelta;
             tickTimer += timeDelta;
+
+            BeforeAllTicks?.Invoke();
+
             while (tickTimer > FixedDeltaTime)
             {
                 tickTimer -= FixedDeltaTime;
