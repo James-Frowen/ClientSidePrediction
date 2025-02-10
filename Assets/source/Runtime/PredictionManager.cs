@@ -148,7 +148,7 @@ namespace JamesFrowen.CSP
             }
 
             // make sure to remove listens before setting to null
-            Server.Connected.RemoveListener(serverManager.AddPlayer);
+            Server.Authenticated.RemoveListener(serverManager.AddPlayer);
             Server.Disconnected.RemoveListener(serverManager.RemovePlayer);
 
             _tickRunner = null;
