@@ -58,9 +58,9 @@ namespace JamesFrowen.CSP
 
         public Vector3 InsideUnitSphere()
         {
-            var x = Next();
-            var y = Next();
-            var z = Next();
+            var x = (Next() - 1) * 2;
+            var y = (Next() - 1) * 2;
+            var z = (Next() - 1) * 2;
             var v = new Vector3(x, y, z);
             if (v.sqrMagnitude > 1)
                 return v.normalized;
