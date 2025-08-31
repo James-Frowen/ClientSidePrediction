@@ -198,6 +198,8 @@ namespace JamesFrowen.CSP
 
         private void AddClientEvents(PredictionCollection behaviours)
         {
+            Client.ManualUpdate = true;
+
             _tickRunner.BeforeAllTicks += () =>
             {
                 Client.UpdateReceive();
@@ -206,7 +208,7 @@ namespace JamesFrowen.CSP
             _tickRunner.AfterAllTicks += () =>
             {
                 VisualUpdate(behaviours.GetUpdates());
-                Server.UpdateSent();
+                Client.UpdateSent();
             };
         }
 
