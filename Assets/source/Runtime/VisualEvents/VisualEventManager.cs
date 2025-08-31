@@ -290,10 +290,9 @@ namespace JamesFrowen.CSP.VisualEvents
         }
     }
 
-    [NetworkMessage]
     [WeaverWriteAsGeneric]
     public struct BehaviourAndData<TBehaviour, TData>
-    where TBehaviour : NetworkBehaviour
+        where TBehaviour : NetworkBehaviour
     {
         public TBehaviour Behaviour;
         public TData Data;
