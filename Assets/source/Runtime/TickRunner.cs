@@ -111,7 +111,7 @@ namespace JamesFrowen.CSP
             stopwatch = Stopwatch.StartNew();
         }
 
-        public bool IsRunning
+        public virtual bool IsRunning
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _isRunning;
@@ -249,7 +249,7 @@ namespace JamesFrowen.CSP
         private readonly float _positiveThreshold;
         private readonly float _negativeThreshold;
         private readonly float _skipAheadThreshold;
-        private bool _intialized;
+        private bool _initialized;
         private int _latestServerTick;
 
         //public float ClientDelaySeconds => ClientDelay * FixedDeltaTime;
@@ -308,13 +308,15 @@ namespace JamesFrowen.CSP
         public void ResetTime()
         {
             _RTTAverage.Reset();
-            _intialized = false;
+            _initialized = false;
         }
+
+        public override bool IsRunning => base.IsRunning && _initialized;
 
         public override void OnUpdate()
         {
             // only update client tick if server has sent first state
-            if (_intialized)
+            if (_initialized)
                 base.OnUpdate();
         }
 
@@ -346,7 +348,7 @@ namespace JamesFrowen.CSP
             // if first message set client time to server-diff
             // reset stuff if too far behind
             // todo check this is correct
-            if (!_intialized)
+            if (!_initialized)
             {
                 InitNew(serverTick);
                 return;
@@ -428,7 +430,7 @@ namespace JamesFrowen.CSP
             _tick = Mathf.CeilToInt(serverTick + DelayInTicks());
             // todo do we need to also set _time here?
             TimeScaleMultiple = _normalScale;
-            _intialized = true;
+            _initialized = true;
             // todo do we need to invoke this at start as well as skip?
             OnTickSkip?.Invoke();
         }
