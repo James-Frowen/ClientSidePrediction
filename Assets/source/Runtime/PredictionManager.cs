@@ -279,10 +279,17 @@ namespace JamesFrowen.CSP
             _time.Method = UpdateMethod.Input;
             for (var i = 0; i < behaviours.Count; i++)
             {
-                var behaviour = behaviours[i];
-                //Debug.Assert(behaviour != null, "Behaviour null");
+                try
+                {
+                    var behaviour = behaviours[i];
+                    //Debug.Assert(behaviour != null, "Behaviour null");
 
-                behaviour.InputUpdate();
+                    behaviour.InputUpdate();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
             }
             _time.Method = UpdateMethod.None;
         }
@@ -291,8 +298,15 @@ namespace JamesFrowen.CSP
             _time.Method = UpdateMethod.Visual;
             for (var i = 0; i < behaviours.Count; i++)
             {
-                var behaviour = behaviours[i];
-                behaviour.VisualUpdate();
+                try
+                {
+                    var behaviour = behaviours[i];
+                    behaviour.VisualUpdate();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
             }
             _time.Method = UpdateMethod.None;
         }
