@@ -2,7 +2,7 @@
   "name": "com.james-frowen.clientsideprediction",
   "displayName": "Client Side Prediction",
   "version": "1.0.0-beta.19",
-  "unity": "2019.4",
+  "unity": "2022.3",
   "description": "Client side prediction system for mirage networking",
   "author": "James Frowen",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/James-Frowen/ClientSidePrediction.git"
   },
   "dependencies": {
-    "com.miragenet.mirage": "151.2.0"
+    "com.miragenet.mirage": "156.2.0"
   },
   "samples": []
 }

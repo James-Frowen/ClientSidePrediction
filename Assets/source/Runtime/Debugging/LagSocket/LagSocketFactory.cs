@@ -26,8 +26,9 @@ namespace JamesFrowen.Mirage.DebugScripts
         public override int MaxPacketSize => inner.MaxPacketSize;
         public override ISocket CreateClientSocket() => new LagSocket(inner.CreateClientSocket(), settings);
         public override ISocket CreateServerSocket() => new LagSocket(inner.CreateClientSocket(), settings);
-        public override IEndPoint GetBindEndPoint() => inner.GetBindEndPoint();
-        public override IEndPoint GetConnectEndPoint(string address = null, ushort? port = null) => inner.GetConnectEndPoint(address, port);
+        public override IBindEndPoint GetBindEndPoint() => inner.GetBindEndPoint();
+        public override IConnectEndPoint GetConnectEndPoint(string address = null, ushort? port = null) => inner.GetConnectEndPoint(address, port);
+        public override bool IsSupported => inner.IsSupported;
     }
 
     [System.Serializable]
@@ -88,7 +89,7 @@ namespace JamesFrowen.Mirage.DebugScripts
         private readonly double zagOffset;
 
         // hard copies to endpoints because the one inner gives us may be changed and re-used
-        private readonly Dictionary<IEndPoint, IEndPoint> endPoints = new Dictionary<IEndPoint, IEndPoint>();
+        private readonly Dictionary<IConnectionHandle, IConnectionHandle> endPoints = new Dictionary<IConnectionHandle, IConnectionHandle>();
         private readonly List<Message> messages = new List<Message>();
         private readonly object __locker = new object();
         private volatile bool closed = false;
@@ -105,17 +106,18 @@ namespace JamesFrowen.Mirage.DebugScripts
             zagOffset = random.NextDouble();
         }
 
-        public void Send(IEndPoint endPoint, byte[] packet, int length) => inner.Send(endPoint, packet, length);
+        public void Send(IConnectionHandle endPoint, ReadOnlySpan<byte> span) => inner.Send(endPoint, span);
 
-        public void Bind(IEndPoint endPoint)
+        public void Bind(IBindEndPoint endPoint)
         {
             inner.Bind(endPoint);
             StartReceiveThread();
         }
-        public void Connect(IEndPoint endPoint)
+        public IConnectionHandle Connect(IConnectEndPoint endPoint)
         {
-            inner.Connect(endPoint);
+            var c = inner.Connect(endPoint);
             StartReceiveThread();
+            return c;
         }
 
         public void Close()
@@ -135,10 +137,15 @@ namespace JamesFrowen.Mirage.DebugScripts
             {
                 while (true)
                 {
+                    inner.Tick();
+
                     while (!closed && inner.Poll())
                     {
-                        ProcessInnerMessage();
+                        var length = inner.Receive(receiveBuffer, out var endPoint);
+                        ProcessInnerMessage(endPoint, receiveBuffer.AsSpan(0, length), false);
                     }
+
+                    inner.Flush();
 
                     // stop thread is closed
                     if (closed) { return; }
@@ -152,13 +159,30 @@ namespace JamesFrowen.Mirage.DebugScripts
             }
         }
 
-        private void ProcessInnerMessage()
+
+        public void Tick() { }
+        public void Flush() { }
+        public void SetTickEvents(int maxPacketSize, OnData _, OnDisconnect __)
         {
-            var length = inner.Receive(receiveBuffer, out var endPoint);
-            if (Drop() || length <= 0)
-            {
+            inner.SetTickEvents(maxPacketSize, OnDataSideThread, OnDisconnectSideThread);
+        }
+
+        private void OnDataSideThread(IConnectionHandle handle, ReadOnlySpan<byte> data)
+        {
+            ProcessInnerMessage(handle, data, false);
+        }
+
+        private void OnDisconnectSideThread(IConnectionHandle handle, ReadOnlySpan<byte> data, string reason)
+        {
+            ProcessInnerMessage(handle, data, true);
+        }
+
+        private void ProcessInnerMessage(IConnectionHandle endPoint, ReadOnlySpan<byte> span, bool isDisconnect)
+        {
+            if (span.Length <= 0)
                 return;
-            }
+            if (!isDisconnect && Drop())
+                return;
 
             if (!endPoints.TryGetValue(endPoint, out var endPointCopy))
             {
@@ -170,9 +194,10 @@ namespace JamesFrowen.Mirage.DebugScripts
             lock (__locker)
             {
                 var buffer = pool.Take();
-                Buffer.BlockCopy(receiveBuffer, 0, buffer.array, 0, length);
-                var receiveTime = Now() + Lag();
-                var item = new Message(receiveTime, length, buffer, endPointCopy);
+                span.CopyTo(buffer.array);
+                // make sure disconnect happens right away
+                var receiveTime = isDisconnect ? 0 : Now() + Lag();
+                var item = new Message(receiveTime, span.Length, buffer, endPointCopy);
                 messages.Add(item);
             }
         }
@@ -236,7 +261,7 @@ namespace JamesFrowen.Mirage.DebugScripts
             return false;
         }
 
-        public int Receive(byte[] buffer, out IEndPoint endPoint)
+        public int Receive(Span<byte> outSpan, out IConnectionHandle endPoint)
         {
             var earliest = double.MaxValue;
             var index = 0;
@@ -254,7 +279,7 @@ namespace JamesFrowen.Mirage.DebugScripts
             // copy message values
             var message = messages[index];
             var length = message.Length;
-            Buffer.BlockCopy(message.Buffer.array, 0, buffer, 0, length);
+            message.Buffer.array.AsSpan(0, length).CopyTo(outSpan);
             endPoint = message.EndPoint;
 
             // remove message
@@ -273,9 +298,9 @@ namespace JamesFrowen.Mirage.DebugScripts
             public readonly double Time;
             public readonly int Length;
             public readonly ByteBuffer Buffer;
-            public readonly IEndPoint EndPoint;
+            public readonly IConnectionHandle EndPoint;
 
-            public Message(double time, int length, ByteBuffer buffer, IEndPoint endPoint)
+            public Message(double time, int length, ByteBuffer buffer, IConnectionHandle endPoint)
             {
                 Time = time;
                 Length = length;
