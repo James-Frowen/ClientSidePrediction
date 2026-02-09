@@ -48,6 +48,12 @@ namespace JamesFrowen.CSP
         private readonly List<IPredictionBehaviour> _sortedBehaviours = new List<IPredictionBehaviour>();
         private readonly IPredictionTime _time;
 
+        // pending lists so we dont change list mid loop
+        private readonly List<IPredictionUpdates> _pendingAddUpdates = new List<IPredictionUpdates>();
+        private readonly List<IPredictionBehaviour> _pendingAddBehaviours = new List<IPredictionBehaviour>();
+        private readonly List<IPredictionUpdates> _pendingRemoveUpdates = new List<IPredictionUpdates>();
+        private readonly List<IPredictionBehaviour> _pendingRemoveBehaviours = new List<IPredictionBehaviour>();
+
         private bool _needsSorting;
 
         public PredictionCollection(IPredictionTime time)
@@ -75,12 +81,18 @@ namespace JamesFrowen.CSP
 
             _needsSorting = true;
 
+            // use foreach/add instead of AddRange because we might need to remove from other list as well
             foreach (var update in updates)
             {
                 update.PredictionTime = _time;
+                _pendingAddUpdates.Add(update);
+                _pendingRemoveUpdates.Remove(update);
             }
-            _sortedUpdates.AddRange(updates);
-            _sortedBehaviours.AddRange(behaviours);
+            foreach (var behaviour in behaviours)
+            {
+                _pendingAddBehaviours.Add(behaviour);
+                _pendingRemoveBehaviours.Remove(behaviour);
+            }
         }
 
         public void Add(IPredictionUpdates update)
@@ -88,7 +100,8 @@ namespace JamesFrowen.CSP
             _needsSorting = true;
 
             update.PredictionTime = _time;
-            _sortedUpdates.Add(update);
+            _pendingAddUpdates.Add(update);
+            _pendingRemoveUpdates.Remove(update);
         }
 
         public void Add(IEnumerable<IPredictionUpdates> updates)
@@ -98,14 +111,17 @@ namespace JamesFrowen.CSP
             foreach (var update in updates)
             {
                 update.PredictionTime = _time;
+                _pendingAddUpdates.Add(update);
+                _pendingRemoveUpdates.Remove(update);
             }
-            _sortedUpdates.AddRange(updates);
         }
 
         public void Remove(NetworkIdentity identity,
             out IReadOnlyList<IPredictionUpdates> removedUpdates,
             out IReadOnlyList<IPredictionBehaviour> removedBehaviours)
         {
+            _gameObjects.Remove(identity);
+
             var updates = GetBehaviourCache<IPredictionUpdates>.GetBehaviours(identity);
             var behaviours = GetBehaviourCache<IPredictionBehaviour>.GetBehaviours(identity);
 
@@ -119,12 +135,15 @@ namespace JamesFrowen.CSP
 
             foreach (var obj in updates)
             {
-                obj.PredictionTime = null;
-                _sortedUpdates.Remove(obj);
+                _pendingRemoveUpdates.Add(obj);
+                _pendingAddUpdates.Remove(obj);
             }
 
             foreach (var obj in behaviours)
-                _sortedBehaviours.Remove(obj);
+            {
+                _pendingRemoveBehaviours.Add(obj);
+                _pendingAddBehaviours.Remove(obj);
+            }
         }
 
         public void Remove(IEnumerable<IPredictionUpdates> updates)
@@ -133,8 +152,8 @@ namespace JamesFrowen.CSP
 
             foreach (var obj in updates)
             {
-                obj.PredictionTime = null;
-                _sortedUpdates.Remove(obj);
+                _pendingRemoveUpdates.Add(obj);
+                _pendingAddUpdates.Remove(obj);
             }
         }
 
@@ -146,6 +165,32 @@ namespace JamesFrowen.CSP
             if (!_needsSorting)
                 return;
             _needsSorting = false;
+
+            foreach (var obj in _pendingRemoveUpdates)
+            {
+                obj.PredictionTime = null;
+                _sortedUpdates.Remove(obj);
+            }
+            _pendingRemoveUpdates.Clear();
+
+            foreach (var obj in _pendingRemoveBehaviours)
+            {
+                _sortedBehaviours.Remove(obj);
+            }
+            _pendingRemoveBehaviours.Clear();
+
+            foreach (var obj in _pendingAddUpdates)
+            {
+                _sortedUpdates.Add(obj);
+            }
+            _pendingAddUpdates.Clear();
+
+            foreach (var obj in _pendingAddBehaviours)
+            {
+                _sortedBehaviours.Add(obj);
+            }
+            _pendingAddBehaviours.Clear();
+
 
             _sortedUpdates.Sort(CompareValues);
             _sortedBehaviours.Sort(CompareValues);
