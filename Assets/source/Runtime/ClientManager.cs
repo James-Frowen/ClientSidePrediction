@@ -230,6 +230,9 @@ namespace JamesFrowen.CSP
                     throw new Exception($"Read netid as 0 at snapshotPosition {end - readPtr}");
 
                 int step = header->IntSize;
+                if (step < IdentitySnapshot.Header.INT_SIZE)
+                    throw new Exception($"Read invalid IntSize {step} for NetId {header->NetId} at snapshotPosition {end - readPtr}. Corrupted packet?");
+
 
                 if (lookup.TryGetValue(header->NetId, out var snapshot))
                 {
@@ -242,7 +245,7 @@ namespace JamesFrowen.CSP
                     anyChanged |= UnsafeHelper.CopyAndCheckChanged(readPtr, ptr, snapshot.IntSizePerTick);
 
                     if (verbose.LogEnabled())
-                        Verbose_LogBehaviourState(readPtr + step, snapshot);
+                        Verbose_LogBehaviourState(readPtr, snapshot);
                 }
                 else
                 {
@@ -255,11 +258,10 @@ namespace JamesFrowen.CSP
             _needResimulate = anyChanged;
         }
 
-        private static unsafe void Verbose_LogBehaviourState(int* writePtr, IdentitySnapshot snap)
+        private static unsafe void Verbose_LogBehaviourState(int* readPtr, IdentitySnapshot snap)
         {
-            var startPtr = writePtr - snap.IntSizePerTick;
-            verbose.Log($"ReadGroup:{snap.IntSizePerTick * 4} bytes, netId:{snap.Identity.NetId}, Object:{snap.Identity.name} Hex:[{*startPtr:X8}]");
-            startPtr += 1;
+            verbose.Log($"ReadGroup:{snap.IntSizePerTick * 4} bytes, netId:{snap.Identity.NetId}, Object:{snap.Identity.name} Hex:[{*readPtr:X8}]");
+            var behaviourPtr = readPtr + IdentitySnapshot.Header.INT_SIZE;
 
             foreach (var snapshot in snap.Snapshots)
             {
@@ -273,7 +275,7 @@ namespace JamesFrowen.CSP
                     if (j != 0)
                         _debugBuilder.Append(" ");
 
-                    var value = startPtr[j];
+                    var value = behaviourPtr[j];
                     string intStr;
                     // zero is a common value, so avoid format string
                     if (value == 0)
@@ -283,7 +285,7 @@ namespace JamesFrowen.CSP
                     _debugBuilder.Append(intStr);
                 }
                 verbose.Log($"ReadState:{snapshot.AllocationSizeInts * 4} bytes, Type:{snapshot.GetType()} Hex:[{_debugBuilder}]");
-                startPtr += snapshot.AllocationSizeInts;
+                behaviourPtr += snapshot.AllocationSizeInts;
             }
         }
 
