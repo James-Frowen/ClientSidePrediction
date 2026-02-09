@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 using JamesFrowen.CSP.Alloc;
 using Mirage;
 using Mirage.Logging;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace JamesFrowen.DeltaSnapshot
@@ -285,22 +286,19 @@ namespace JamesFrowen.DeltaSnapshot
         }
         public static void Copy(int* from, int* to, int intCount)
         {
-            for (var j = 0; j < intCount; j++)
-            {
-                to[j] = from[j];
-            }
+            UnsafeUtility.MemCpy(to, from, intCount * 4);
         }
         public static bool CopyAndCheckChanged(int* from, int* to, int intCount)
         {
-            var anyChanged = false;
-            for (var j = 0; j < intCount; j++)
-            {
-                if (to[j] != from[j])
-                    anyChanged = true;
+            var bytes = intCount * 4;
 
-                to[j] = from[j];
-            }
-            return anyChanged;
+            // Cmp checks if the memory is equal,
+            // if it is not then we can copy it 
+            if (UnsafeUtility.MemCmp(to, from, bytes) == 0)
+                return false;
+
+            UnsafeUtility.MemCpy(to, from, bytes);
+            return true;
         }
     }
 }
