@@ -151,7 +151,7 @@ namespace JamesFrowen.CSP
         public void OnUnspawn(NetworkIdentity identity)
         {
             _behaviours.Remove(identity, out var _, out var _);
-            _worldSnapshot.Remove(identity, false);
+            _worldSnapshot.Remove(identity, true);
         }
 
         private unsafe void ReceiveDeltaWorldState(INetworkPlayer player, DeltaWorldState msg)
@@ -401,6 +401,11 @@ namespace JamesFrowen.CSP
             SendInputs(tick);
             Simulate(tick);
             _time.Method = UpdateMethod.None;
+        }
+
+        public void Cleanup()
+        {
+            _worldSnapshot.Cleanup();
         }
 
         private void SendInputs(int tick)

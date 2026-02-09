@@ -26,6 +26,7 @@ namespace JamesFrowen.DeltaSnapshot
 
         private readonly List<IdentitySnapshot> _snapshots = new List<IdentitySnapshot>();
         private readonly Dictionary<uint, IdentitySnapshot> _lookup = new Dictionary<uint, IdentitySnapshot>();
+        private readonly List<IdentitySnapshot> _pendingRelease = new List<IdentitySnapshot>();
         private readonly int _tickBufferSize;
 
         public IReadOnlyDictionary<uint, IdentitySnapshot> LookUp => _lookup;
@@ -61,7 +62,7 @@ namespace JamesFrowen.DeltaSnapshot
 
             if (release)
             {
-                snap.Release(_allocator);
+                _pendingRelease.Add(snap);
             }
 
             _lookup.Remove(identity.NetId);
@@ -69,10 +70,23 @@ namespace JamesFrowen.DeltaSnapshot
         }
 
         /// <summary>
-        /// Copies state from previous tick to 
+        /// Release memory from recent removes
         /// </summary>
-        /// <param name="previousTick"></param>
-        /// <param name="nextTick"></param>
+        public void Cleanup()
+        {
+            if (_pendingRelease.Count == 0) return;
+
+            foreach (var snap in _pendingRelease)
+            {
+                snap.Release(_allocator);
+            }
+            _pendingRelease.Clear();
+        }
+
+        /// <summary>
+        /// Copies state from previous tick to current tick
+        /// </summary>
+        /// <param name="tick"></param>
         public unsafe void CopyFromPreviousTick(int tick)
         {
             // nextTick is the snapshot we are preparing to use,
@@ -112,7 +126,14 @@ namespace JamesFrowen.DeltaSnapshot
         void* IHasAllocatedPointer.Ptr
         {
             get => _ptr;
-            set => _ptr = value;
+            set
+            {
+                _ptr = value;
+                // if the new value is null, we need to clear the child pointers right away
+                // to avoid use after free
+                if (value == null)
+                    SetActivePtrNull();
+            }
         }
         public int* IntPtr => (int*)_ptr;
         public string name => $"Group for {Identity.name} ({Identity.NetId})";
@@ -208,6 +229,14 @@ namespace JamesFrowen.DeltaSnapshot
             for (var i = 0; i < Snapshots.Length; i++)
             {
                 Snapshots[i].Ptr = IntPtr + offset + Snapshots[i].PtrIntOffset;
+            }
+        }
+
+        public void SetActivePtrNull()
+        {
+            for (var i = 0; i < Snapshots.Length; i++)
+            {
+                Snapshots[i].Ptr = null;
             }
         }
 

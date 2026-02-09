@@ -132,7 +132,7 @@ namespace JamesFrowen.CSP
         private void OnUnspawn(NetworkIdentity identity)
         {
             _behaviours.Remove(identity, out var _, out var _);
-            _worldSnapshot.Remove(identity, false);
+            _worldSnapshot.Remove(identity, true);
         }
 
         public void Tick(int tick)
@@ -148,6 +148,11 @@ namespace JamesFrowen.CSP
             _time.Method = UpdateMethod.None;
 
             _sender.SendState(tick);
+        }
+
+        public void Cleanup()
+        {
+            _worldSnapshot.Cleanup();
         }
 
         public void Simulate(int tick)

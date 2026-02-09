@@ -324,6 +324,8 @@ namespace JamesFrowen.CSP
 
 
             _tickRunner?.OnUpdate();
+            serverManager?.Cleanup();
+            clientManager?.Cleanup();
 
 #if DEBUG
             SetGuiValues();
