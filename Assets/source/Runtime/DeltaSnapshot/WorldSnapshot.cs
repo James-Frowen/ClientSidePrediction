@@ -120,6 +120,9 @@ namespace JamesFrowen.DeltaSnapshot
         public readonly NetworkIdentity Identity;
         public readonly ISnapshotBehaviour[] Snapshots;
         public readonly int TickBufferSize;
+        /// <summary>
+        /// Total size of the snapshot for a single tick, in 32-bit integers. Includes <see cref="Header"/>.
+        /// </summary>
         public readonly int IntSizePerTick;
         private void* _ptr;
 
@@ -162,7 +165,7 @@ namespace JamesFrowen.DeltaSnapshot
 
         private int calculateIntSize(ISnapshotBehaviour[] snapshots)
         {
-            // +1 for netid
+            // +2 for netid
             var intSize = IdentitySnapshot.Header.INT_SIZE;
             foreach (var behaviour in snapshots)
             {
@@ -201,6 +204,7 @@ namespace JamesFrowen.DeltaSnapshot
                 var offset = tick * IntSizePerTick;
                 var hPtr = (Header*)(IntPtr + offset);
                 hPtr->NetId = Identity.NetId;
+                hPtr->IntSize = IntSizePerTick;
 
                 // todo does header need prefab hash so client can spawn it if missing?
                 //Debug.Assert(Identity.IsPrefab);
@@ -263,12 +267,13 @@ namespace JamesFrowen.DeltaSnapshot
         }
 
 
-        [StructLayout(LayoutKind.Explicit, Size = INT_SIZE)]
+        [StructLayout(LayoutKind.Explicit, Size = INT_SIZE * 4)]
         public struct Header
         {
-            public const int INT_SIZE = 1;
+            public const int INT_SIZE = 2;
 
             [FieldOffset(0)] public uint NetId;
+            [FieldOffset(4)] public int IntSize;
         }
     }
 

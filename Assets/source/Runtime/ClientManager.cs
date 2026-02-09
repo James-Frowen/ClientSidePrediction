@@ -229,22 +229,27 @@ namespace JamesFrowen.CSP
                 if (header->NetId == 0)
                     throw new Exception($"Read netid as 0 at snapshotPosition {end - readPtr}");
 
-                // object might be new? and not in snapshot
-                // if so, add it to tick
-                if (!lookup.TryGetValue(header->NetId, out var snapshot))
+                int step = header->IntSize;
+
+                if (lookup.TryGetValue(header->NetId, out var snapshot))
                 {
-                    logger.LogError($"(TODO FIX THIS) Could not find NetworkIdentity with id={header->NetId}, Stoping ReceiveState");
-                    return;
+                    if (step != snapshot.IntSizePerTick)
+                    {
+                        if (logger.ErrorEnabled()) logger.LogError($"Size mismatch for NetId {header->NetId}. Server:{step} Client:{snapshot.IntSizePerTick}");
+                    }
+
+                    var ptr = snapshot.GetStateAtTick(tick);
+                    anyChanged |= UnsafeHelper.CopyAndCheckChanged(readPtr, ptr, snapshot.IntSizePerTick);
+
+                    if (verbose.LogEnabled())
+                        Verbose_LogBehaviourState(readPtr + step, snapshot);
+                }
+                else
+                {
+                    if (logger.WarnEnabled()) logger.LogWarning($"Could not find NetworkIdentity with id={header->NetId}, skipping {step} ints");
                 }
 
-                // we dont need to
-                var ptr = snapshot.GetStateAtTick(tick);
-                anyChanged |= UnsafeHelper.CopyAndCheckChanged(readPtr, ptr, snapshot.IntSizePerTick);
-
-                readPtr += snapshot.IntSizePerTick;
-
-                if (verbose.LogEnabled())
-                    Verbose_LogBehaviourState(readPtr, snapshot);
+                readPtr += step;
             }
 
             _needResimulate = anyChanged;
