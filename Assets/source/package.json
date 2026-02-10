@@ -10,7 +10,7 @@
     "url": "https://github.com/James-Frowen/ClientSidePrediction.git"
   },
   "dependencies": {
-    "com.miragenet.mirage": "156.2.0"
+    "com.miragenet.mirage": "157.0.0"
   },
   "samples": []
 }
