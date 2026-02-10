@@ -50,14 +50,14 @@ namespace JamesFrowen.DeltaSnapshot
             return snap;
         }
 
-        public void Remove(NetworkIdentity identity, bool release)
+        public void Remove(uint netId, bool release)
         {
-            Debug.Assert(identity.NetId != 0);
+            Debug.Assert(netId != 0);
 
-            if (!_lookup.TryGetValue(identity.NetId, out var snap))
+            if (!_lookup.TryGetValue(netId, out var snap))
             {
                 // todo remove warning, CreateAndAdd is not called when GO has no snapshotbehaviours, but remove still is 
-                if (logger.WarnEnabled()) logger.LogWarning($"trying to remove {identity.NetId} but it was missing in Lookup");
+                if (logger.WarnEnabled()) logger.LogWarning($"trying to remove {netId} but it was missing in Lookup");
                 return;
             }
 
@@ -66,7 +66,7 @@ namespace JamesFrowen.DeltaSnapshot
                 _pendingRelease.Add(snap);
             }
 
-            _lookup.Remove(identity.NetId);
+            _lookup.Remove(netId);
             _snapshots.Remove(snap);
         }
 

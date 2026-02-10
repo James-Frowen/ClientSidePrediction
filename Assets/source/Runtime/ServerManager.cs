@@ -129,10 +129,10 @@ namespace JamesFrowen.CSP
             }
         }
 
-        private void OnUnspawn(NetworkIdentity identity)
+        private void OnUnspawn(uint netId, NetworkIdentity identity)
         {
             _behaviours.Remove(identity, out var _, out var _);
-            _worldSnapshot.Remove(identity, true);
+            _worldSnapshot.Remove(netId, true);
         }
 
         public void Tick(int tick)

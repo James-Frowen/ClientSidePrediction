@@ -148,10 +148,10 @@ namespace JamesFrowen.CSP
             }
         }
 
-        public void OnUnspawn(NetworkIdentity identity)
+        public void OnUnspawn(uint netId, NetworkIdentity identity)
         {
             _behaviours.Remove(identity, out var _, out var _);
-            _worldSnapshot.Remove(identity, true);
+            _worldSnapshot.Remove(netId, true);
         }
 
         private unsafe void ReceiveDeltaWorldState(INetworkPlayer player, DeltaWorldState msg)
@@ -229,7 +229,7 @@ namespace JamesFrowen.CSP
                 if (header->NetId == 0)
                     throw new Exception($"Read netid as 0 at snapshotPosition {end - readPtr}");
 
-                int step = header->IntSize;
+                var step = header->IntSize;
                 if (step < IdentitySnapshot.Header.INT_SIZE)
                     throw new Exception($"Read invalid IntSize {step} for NetId {header->NetId} at snapshotPosition {end - readPtr}. Corrupted packet?");
 
